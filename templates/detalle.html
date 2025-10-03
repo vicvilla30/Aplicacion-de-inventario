@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Detalle producto</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-4">
+<div class="container">
+    <h1 class="h4 mb-4">Detalle del producto</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3 text-center">
+                    {% if item['IMAGEN'] %}
+                        <img src="{{ url_for('static', filename='uploads/' ~ item['IMAGEN']) }}" alt="Imagen" class="img-fluid rounded" style="max-height:220px; object-fit:cover;">
+                    {% else %}
+                        <div class="border rounded p-4 text-muted">Sin imagen</div>
+                    {% endif %}
+                    {% if item['CANTIDAD'] <= item['MINIMO'] %}
+                        <div class="mt-2">
+                            <span class="badge bg-danger">⚠ Bajo stock</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-9">
+                    <dl class="row">
+                        <dt class="col-sm-3">Marca</dt>
+                        <dd class="col-sm-9">{{ item['MARCA'] }}</dd>
+
+                        <dt class="col-sm-3">Código</dt>
+                        <dd class="col-sm-9">{{ item['CODIGO'] }}</dd>
+
+                        <dt class="col-sm-3">Descripción</dt>
+                        <dd class="col-sm-9">{{ item['DESCRIPCION'] }}</dd>
+
+                        <dt class="col-sm-3">Cantidad</dt>
+                        <dd class="col-sm-9">{{ item['CANTIDAD'] }}</dd>
+
+                        <dt class="col-sm-3">Mínimo</dt>
+                        <dd class="col-sm-9">{{ item['MINIMO'] }}</dd>
+
+                        <dt class="col-sm-3">Ubicación</dt>
+                        <dd class="col-sm-9">{{ item['UBICACION'] }}</dd>
+
+                        <dt class="col-sm-3">Serial</dt>
+                        <dd class="col-sm-9">{{ item['SERIAL'] }}</dd>
+
+                        <dt class="col-sm-3">Precio costo</dt>
+                        <dd class="col-sm-9">{{ item['PRECIO_COSTO'] }}</dd>
+
+                        <dt class="col-sm-3">Precio distribuidor</dt>
+                        <dd class="col-sm-9">{{ item['PRECIO_DIST'] }}</dd>
+
+                        <dt class="col-sm-3">Precio integrador</dt>
+                        <dd class="col-sm-9">{{ item['PRECIO_INT'] }}</dd>
+
+                        <dt class="col-sm-3">Precio general</dt>
+                        <dd class="col-sm-9">{{ item['PRECIO_GENERAL'] }}</dd>
+                    </dl>
+
+                    <div class="mt-3">
+                        <a href="{{ url_for('editar', id=item['id']) }}" class="btn btn-warning btn-sm">Editar</a>
+                        <a href="{{ url_for('eliminar', id=item['id']) }}" class="btn btn-danger btn-sm"
+                           onclick="return confirm('¿Seguro que deseas eliminar este producto?')">Eliminar</a>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">Volver</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
