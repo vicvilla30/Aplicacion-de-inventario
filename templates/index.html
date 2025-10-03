@@ -2,13 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Inventario — Modern</title>
-
-    <!-- Bootstrap CSS + Icons -->
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
     <style>
         :root{
             --accent:#0d6efd;
@@ -17,7 +14,6 @@
         .table-modern tbody tr:hover { background: rgba(13,110,253,0.03); }
         .low-stock-row { background:#feecec !important; }
         .low-stock-badge { background:var(--danger-strong); color:#fff; font-weight:600; }
-        .table th:nth-child(6), .table td:nth-child(6) { display:none; }
         .search-input .form-control { padding-left:2.5rem; }
         .search-input .bi-search { left:0.9rem; top:0.7rem; position:absolute; color:#6c757d; }
         .stats .card { border:0; box-shadow:0 1px 6px rgba(0,0,0,0.04); }
@@ -30,7 +26,7 @@
         <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('index') }}">
             <img src="{{ url_for('static', filename='logo.png') }}"
                  alt="LSI Group"
-                 style="height:40px; margin-right:10px;"
+                 style="height:60px; margin-right:14px;"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block'">
             <span style="display:none;">LSI Group</span>
             <span class="ms-1">📦 Inventario</span>
@@ -57,7 +53,6 @@
             </div>
         </div>
 
-        <!-- Bajo stock clickeable sin badge -->
         <div class="col-sm-6 col-md-3 mb-2">
             <a href="{{ url_for('index', solo_bajo_stock=1, ubicacion=ubicacion_filtro, busqueda=busqueda) }}"
                class="card p-2 text-decoration-none text-reset" style="display:block">
@@ -76,7 +71,6 @@
         <div class="col-md-6 d-none d-md-block"></div>
     </div>
 
-    <!-- Botón para volver a todos los productos si está el filtro de Bajo Stock -->
     {% if request.args.get('solo_bajo_stock') %}
         <div class="mb-3">
             <a href="{{ url_for('index', ubicacion=ubicacion_filtro, busqueda=busqueda) }}" class="btn btn-outline-secondary">
@@ -85,17 +79,14 @@
         </div>
     {% endif %}
 
-    <!-- filtros / búsqueda -->
     <form method="get" class="row g-2 align-items-center mb-3">
         <div class="col-sm-8 col-md-6 position-relative search-input">
             <i class="bi bi-search"></i>
             <input id="busqueda" name="busqueda" type="search" class="form-control" placeholder="Buscar por código, descripción o marca" value="{{ busqueda }}">
         </div>
-
         <div class="col-sm-4 col-md-3">
             <input id="ubicacion" name="ubicacion" type="text" class="form-control" placeholder="Ubicación (opcional)" value="{{ ubicacion_filtro }}">
         </div>
-
         <div class="col-auto">
             <button type="submit" class="btn btn-outline-primary">Filtrar</button>
         </div>
@@ -104,7 +95,6 @@
         </div>
     </form>
 
-    <!-- tabla moderna con checkboxes -->
     <form id="tabla-form" method="post" action="{{ url_for('exportar_seleccionados') }}">
         <div class="table-responsive shadow-sm bg-white rounded">
             <table class="table table-modern table-hover mb-0 align-middle">
@@ -116,10 +106,12 @@
                         <th class="text-muted small">Código</th>
                         <th class="text-muted small">Descripción</th>
                         <th class="text-muted small">Cantidad</th>
-                        <th class="text-muted small">Mínimo</th>
                         <th class="text-muted small">Ubicación</th>
                         <th class="text-muted small">Estado</th>
                         <th class="text-end text-muted small">Acciones</th>
+                        <th class="text-muted small">Entrada</th>
+                        <th class="text-muted small">Salida</th>
+                        <th class="text-muted small">Movimientos</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -138,7 +130,6 @@
                         </td>
                         <td class="desc-cell">{{ item['DESCRIPCION'] }}</td>
                         <td>{{ item['CANTIDAD'] }}</td>
-                        <td>{{ item['MINIMO'] }}</td>
                         <td>{{ item['UBICACION'] }}</td>
                         <td>
                             {% if item['CANTIDAD'] <= item['MINIMO'] %}
@@ -154,9 +145,24 @@
                                 <a href="{{ url_for('eliminar', id=item['id']) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Eliminar producto?')" title="Eliminar"><i class="bi bi-trash"></i></a>
                             </div>
                         </td>
+                        <td>
+                            <a href="{{ url_for('entrada', id=item['id']) }}" class="btn btn-sm btn-success" title="Registrar entrada">
+                                <i class="bi bi-box-arrow-in-down"></i>
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('salida', id=item['id']) }}" class="btn btn-sm btn-secondary" title="Registrar salida">
+                                <i class="bi bi-box-arrow-up"></i>
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('movimientos', id=item['id']) }}" class="btn btn-sm btn-info" title="Ver movimientos">
+                                <i class="bi bi-clock-history"></i>
+                            </a>
+                        </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="10" class="text-center py-4 text-muted">No hay productos</td></tr>
+                    <tr><td colspan="12" class="text-center py-4 text-muted">No hay productos</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
@@ -171,7 +177,6 @@ document.getElementById('checkAll').onclick = function() {
     for (var c of checks) c.checked = this.checked;
 };
 </script>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

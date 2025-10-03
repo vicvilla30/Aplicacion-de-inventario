@@ -1,1 +1,29 @@
-node_modules
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Variables/secretos
+.env
+.env.*
+
+# Bases de datos
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# SO
+.DS_Store
+Thumbs.db
