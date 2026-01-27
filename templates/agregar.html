@@ -77,9 +77,21 @@
                     <input type="number" name="minimo" class="form-control" value="0" min="0" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Ubicación:</label>
-                    <input type="text" name="ubicacion" class="form-control" placeholder="Ej: Almacén A - Estante 3">
-                </div>
+    <label class="form-label">Ubicación:</label>
+    <select name="ubicacion" class="form-select" required>
+        <optgroup label="Ubicaciones fijas">
+            {% for u in ubicaciones_fijas %}
+                <option value="{{ u.nombre }}">{{ u.nombre }}</option>
+            {% endfor %}
+        </optgroup>
+
+        <optgroup label="Proyectos">
+            {% for p in proyectos %}
+                <option value="{{ p.nombre }}">{{ p.nombre }}</option>
+            {% endfor %}
+        </optgroup>
+    </select>
+</div>
                 <div class="col-md-6">
                     <label class="form-label">Serial:</label>
                     <input type="text" name="serial" class="form-control">

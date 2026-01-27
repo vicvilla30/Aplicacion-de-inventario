@@ -77,9 +77,28 @@
                     <input type="number" name="minimo" class="form-control" value="{{ item['MINIMO'] }}" min="0" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Ubicación:</label>
-                    <input type="text" name="ubicacion" class="form-control" value="{{ item['UBICACION'] }}" placeholder="Ej: Almacén A - Estante 3">
-                </div>
+    <label class="form-label">Ubicación:</label>
+    <select name="ubicacion" class="form-select" required>
+
+        <optgroup label="Ubicaciones fijas">
+            {% for u in ubicaciones_fijas %}
+                <option value="{{ u['NOMBRE'] }}" {% if item['UBICACION'] == u['NOMBRE'] %}selected{% endif %}>
+                    {{ u['NOMBRE'] }}
+                </option>
+            {% endfor %}
+        </optgroup>
+
+        <optgroup label="Proyectos">
+            {% for p in proyectos %}
+                <option value="{{ p['NOMBRE'] }}" {% if item['UBICACION'] == p['NOMBRE'] %}selected{% endif %}>
+                    {{ p['NOMBRE'] }}
+                </option>
+            {% endfor %}
+        </optgroup>
+
+    </select>
+</div>
+
                 <div class="col-md-6">
                     <label class="form-label">Serial:</label>
                     <input type="text" name="serial" class="form-control" value="{{ item['SERIAL'] }}">

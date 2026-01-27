@@ -23,6 +23,28 @@ def get_db_connection():
     conn.create_function("quitar_acentos", 1, quitar_acentos)
     return conn
 
+def obtener_ubicaciones():
+    conn = get_db_connection()
+
+    ubicaciones_fijas = conn.execute("""
+        SELECT nombre AS NOMBRE
+        FROM ubicaciones
+        WHERE tipo = 'FIJA' AND activa = 1
+        ORDER BY nombre
+    """).fetchall()
+
+    proyectos = conn.execute("""
+        SELECT nombre AS NOMBRE
+        FROM ubicaciones
+        WHERE tipo = 'PROYECTO' AND activa = 1
+        ORDER BY nombre
+    """).fetchall()
+
+    conn.close()
+    return ubicaciones_fijas, proyectos
+
+
+
 def init_db():
     conn = get_db_connection()
     conn.execute("""
@@ -190,7 +212,37 @@ def agregar():
             enviar_alerta_stock(nuevo)
         conn.close()
         return redirect(url_for("index"))
-    return render_template("agregar.html")
+    
+    ubicaciones_fijas, proyectos = obtener_ubicaciones()
+    return render_template(
+        "agregar.html",
+        ubicaciones_fijas=ubicaciones_fijas,
+        proyectos=proyectos
+    )
+
+@app.route("/crear_proyecto", methods=["GET", "POST"])
+def crear_proyecto():
+    if request.method == "POST":
+        nombre = request.form.get("nombre", "").strip().upper()
+
+        if not nombre:
+            flash("El nombre del proyecto es obligatorio", "warning")
+        else:
+            conn = get_db_connection()
+            try:
+                conn.execute(
+                    "INSERT INTO ubicaciones (nombre, tipo) VALUES (?, 'PROYECTO')",
+                    (nombre,)
+                )
+                conn.commit()
+                flash("Proyecto creado correctamente", "success")
+            except sqlite3.IntegrityError:
+                flash("Ese proyecto ya existe", "danger")
+            conn.close()
+
+        return redirect(url_for("crear_proyecto"))
+
+    return render_template("crear_proyecto.html")
 
 @app.route("/entrada/<int:id>", methods=["GET", "POST"])
 def entrada(id):
@@ -223,8 +275,20 @@ def entrada(id):
 
 @app.route("/editar/<int:id>", methods=["GET", "POST"])
 def editar(id):
+
+    # -------- LECTURA (una conexión) --------
     conn = get_db_connection()
-    item = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
+    item = conn.execute(
+        "SELECT * FROM inventario WHERE id = ?",
+        (id,)
+    ).fetchone()
+    conn.close()   # <-- 🔴 IMPORTANTE CERRAR AQUI
+
+    if not item:
+        flash("Producto no encontrado", "danger")
+        return redirect(url_for("index"))
+
+    # -------- ACTUALIZACIÓN (otra conexión) --------
     if request.method == "POST":
         marca = request.form.get("marca", "").strip()
         codigo = request.form.get("codigo", "").strip()
@@ -237,7 +301,9 @@ def editar(id):
         precio_dist = to_float(request.form.get("precio_dist"), 0.0)
         precio_int = to_float(request.form.get("precio_int"), 0.0)
         precio_general = to_float(request.form.get("precio_general"), 0.0)
+
         imagen = item["IMAGEN"]
+
         if "imagen" in request.files:
             file = request.files["imagen"]
             if file and file.filename != "":
@@ -246,6 +312,7 @@ def editar(id):
                 unique_name = f"{uuid.uuid4().hex}{ext}"
                 filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
                 file.save(filepath)
+
                 if item["IMAGEN"]:
                     old_path = os.path.join(app.config["UPLOAD_FOLDER"], item["IMAGEN"])
                     if os.path.exists(old_path):
@@ -253,22 +320,36 @@ def editar(id):
                             os.remove(old_path)
                         except Exception:
                             pass
+
                 imagen = unique_name
-        conn.execute("""UPDATE inventario SET 
-            MARCA=?, CODIGO=?, DESCRIPCION=?, CANTIDAD=?, MINIMO=?, UBICACION=?, SERIAL=?,
-            PRECIO_COSTO=?, PRECIO_DIST=?, PRECIO_INT=?, PRECIO_GENERAL=?, IMAGEN=?
-            WHERE id=?""",
-            (marca, codigo, descripcion, cantidad, minimo, ubicacion, serial,
-             precio_costo, precio_dist, precio_int, precio_general, imagen, id)
-        )
+
+        # 🔵 NUEVA CONEXIÓN SOLO PARA ESCRIBIR
+        conn = get_db_connection()
+
+        conn.execute("""
+            UPDATE inventario SET 
+                MARCA=?, CODIGO=?, DESCRIPCION=?, CANTIDAD=?, MINIMO=?, UBICACION=?, SERIAL=?,
+                PRECIO_COSTO=?, PRECIO_DIST=?, PRECIO_INT=?, PRECIO_GENERAL=?, IMAGEN=?
+            WHERE id=?
+        """, (
+            marca, codigo, descripcion, cantidad, minimo, ubicacion, serial,
+            precio_costo, precio_dist, precio_int, precio_general, imagen, id
+        ))
+
         conn.commit()
-        producto_actualizado = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
-        if producto_actualizado and producto_actualizado["CANTIDAD"] <= producto_actualizado["MINIMO"]:
-            enviar_alerta_stock(producto_actualizado)
         conn.close()
         return redirect(url_for("index"))
-    conn.close()
-    return render_template("editar.html", item=item)
+
+    # -------- LECTURA DE UBICACIONES (otra conexión) --------
+    ubicaciones_fijas, proyectos = obtener_ubicaciones()
+
+    return render_template(
+        "editar.html",
+        item=item,
+        ubicaciones_fijas=ubicaciones_fijas,
+        proyectos=proyectos
+    )
+
 
 @app.route("/eliminar/<int:id>")
 def eliminar(id):
