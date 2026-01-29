@@ -94,7 +94,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="{{ url_for('importar') }}">
-                            <i class="bi bi-cloud-upload"></i> Importar Excel
+                            <i class="bi bi-cloud-upload"></i> Importar / Exportar
                         </a>
                     </li>
                     <li class="nav-item">
@@ -145,8 +145,8 @@
             <ol class="small mb-0">
                 <li><strong>Para exportar:</strong> Haz clic en "Exportar inventario completo" para descargar todos los productos actuales</li>
                 <li><strong>Para importar:</strong> Sube un archivo Excel con las columnas: MARCA, CODIGO, DESCRIPCION, CANTIDAD, MINIMO, UBICACION, SERIAL, PRECIO_COSTO, PRECIO_DIST, PRECIO_INT, PRECIO_GENERAL</li>
-                <li>Si el <strong>CODIGO</strong> ya existe en la base de datos, se <strong>actualizará</strong> el producto</li>
-                <li>Si el <strong>CODIGO</strong> no existe, se <strong>creará</strong> un nuevo producto</li>
+                <li><strong>Todos los productos del Excel se importarán como nuevos registros</strong></li>
+                <li>Se permiten códigos duplicados (útil para el mismo producto en diferentes ubicaciones)</li>
                 <li>Puedes exportar el inventario, modificarlo en Excel y volver a importarlo</li>
             </ol>
         </div>

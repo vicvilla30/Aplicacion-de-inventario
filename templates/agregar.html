@@ -2,19 +2,14 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Agregar Producto — Inventario</title>
+    <title>Agregar Producto</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        :root{
-            --accent:#0d6efd;
-            --danger-strong:#b71c1c;
-        }
-        
         body { background: #f8f9fa; }
-        
-        /* Estilos del navbar */
+        .form-container { max-width: 900px; margin: 2rem auto; }
+        .card { border: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .navbar-nav .nav-link {
             font-weight: bold;
             color: white !important;
@@ -22,252 +17,189 @@
         .navbar-nav .nav-link:hover {
             color: #e0e0e0 !important;
         }
-        .navbar-nav .nav-link.active {
-            color: #ffffff !important;
-            background-color: rgba(255, 255, 255, 0.15);
-            border-radius: 0.5rem;
-        }
-        
-        /* Estilos del formulario */
-        .form-modern {
-            background: #fff;
-            border-radius: 1.2rem;
-            box-shadow: 0 2px 16px rgba(13,110,253,0.07);
-            padding: 2.5rem 2rem;
-            max-width: 900px;
-            margin: 2.5rem auto;
-        }
-        .form-modern h1 {
-            font-size: 2rem;
-            color: var(--accent);
-            font-weight: bold;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        .form-label { 
-            color: var(--accent); 
-            font-weight: 500; 
-        }
-        .form-control:focus, .form-select:focus { 
-            border-color: var(--accent); 
-            box-shadow: 0 0 0 0.12rem rgba(13,110,253,.15); 
-        }
-        
         .toast-container {
             position: fixed;
             top: 80px;
             right: 20px;
             z-index: 9999;
         }
-        
-        @media (max-width: 991px) {
-            .form-modern { 
-                padding: 1.2rem 0.5rem; 
-            }
-        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #003d82;">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='logo.png') }}"
-                     alt="LSI Group"
-                     style="height:45px; margin-right:12px; background:white; padding:6px; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
-                     onerror="this.style.display='none'">
-                <span>📦 Inventario LSI</span>
-            </a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">
-                            <i class="bi bi-house"></i> Inicio
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('agregar') }}">
-                            <i class="bi bi-plus-circle"></i> Agregar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('importar') }}">
-                            <i class="bi bi-cloud-upload"></i> Importar Excel
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
-                            <i class="bi bi-folder-plus"></i> Proyectos
-                        </a>
-                    </li>
-                </ul>
-            </div>
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #003d82;">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('index') }}">
+            <img src="{{ url_for('static', filename='logo.png') }}"
+                 alt="LSI Group"
+                 style="height:45px; margin-right:12px; background:white; padding:6px; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                 onerror="this.style.display='none'">
+            <span>📦 Inventario LSI</span>
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('index') }}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{ url_for('agregar') }}">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('importar') }}">
+                        <i class="bi bi-cloud-upload"></i> Importar / Exportar
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
+                        <i class="bi bi-folder-plus"></i> Proyectos
+                    </a>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <div class="form-modern">
-        <h1><i class="bi bi-plus-circle me-2"></i>Agregar producto</h1>
-        <form method="post" enctype="multipart/form-data" autocomplete="off" id="formAgregar">
-            <div class="row g-4">
+<div class="form-container">
+    <div class="card p-4">
+        <h3 class="mb-4">
+            <i class="bi bi-plus-circle text-success"></i> Agregar Nuevo Producto
+        </h3>
+        
+        <form method="post" enctype="multipart/form-data">
+            <div class="row g-3">
+                <!-- Marca -->
                 <div class="col-md-6">
-                    <label class="form-label">Marca: <span class="text-danger">*</span></label>
-                    <input type="text" name="marca" class="form-control" required>
+                    <label class="form-label fw-bold">Marca <span class="text-danger">*</span></label>
+                    <input type="text" name="marca" class="form-control text-uppercase" required>
                 </div>
+
+                <!-- Código -->
                 <div class="col-md-6">
-                    <label class="form-label">Código: <span class="text-danger">*</span></label>
-                    <input type="text" name="codigo" class="form-control" required>
+                    <label class="form-label fw-bold">Código <span class="text-danger">*</span></label>
+                    <input type="text" name="codigo" class="form-control text-uppercase" required>
                 </div>
-                <div class="col-md-12">
-                    <label class="form-label">Descripción: <span class="text-danger">*</span></label>
-                    <textarea name="descripcion" class="form-control" rows="2" required></textarea>
+
+                <!-- Descripción -->
+                <div class="col-12">
+                    <label class="form-label fw-bold">Descripción <span class="text-danger">*</span></label>
+                    <textarea name="descripcion" class="form-control text-uppercase" rows="3" required></textarea>
                 </div>
+
+                <!-- Cantidad -->
                 <div class="col-md-4">
-                    <label class="form-label">Cantidad:</label>
-                    <input type="number" name="cantidad" class="form-control" value="0" min="0" required>
+                    <label class="form-label fw-bold">Cantidad</label>
+                    <input type="number" name="cantidad" class="form-control" value="0" min="0">
                 </div>
+
+                <!-- Stock Mínimo -->
                 <div class="col-md-4">
-                    <label class="form-label">Stock mínimo:</label>
-                    <input type="number" name="minimo" class="form-control" value="0" min="0" required>
+                    <label class="form-label fw-bold">Stock Mínimo</label>
+                    <input type="number" name="minimo" class="form-control" value="0" min="0">
                 </div>
+
+                <!-- Serial -->
                 <div class="col-md-4">
-                    <label class="form-label">Ubicación: <span class="text-danger">*</span></label>
-                    <select name="ubicacion" class="form-select" required>
-                        <option value="">Selecciona...</option>
-                        <optgroup label="📍 Ubicaciones Fijas">
-                            {% for u in ubicaciones_fijas %}
-                                <option value="{{ u['NOMBRE'] }}">{{ u['NOMBRE'] }}</option>
-                            {% endfor %}
-                        </optgroup>
-                        <optgroup label="📁 Proyectos">
-                            {% for p in proyectos %}
-                                <option value="{{ p['NOMBRE'] }}">{{ p['NOMBRE'] }}</option>
-                            {% endfor %}
-                        </optgroup>
-                    </select>
-                    <small class="text-muted">
-                        <a href="{{ url_for('crear_proyecto') }}" class="text-decoration-none" target="_blank">
-                            <i class="bi bi-plus-circle"></i> Crear nuevo proyecto
-                        </a>
-                    </small>
+                    <label class="form-label fw-bold">Serial</label>
+                    <input type="text" name="serial" class="form-control text-uppercase">
                 </div>
+
+                <!-- Ubicación -->
                 <div class="col-md-6">
-                    <label class="form-label">Serial:</label>
-                    <input type="text" name="serial" class="form-control" placeholder="Número de serie (opcional)">
+                    <label class="form-label fw-bold">Ubicación</label>
+                    <input 
+                        type="text" 
+                        name="ubicacion" 
+                        class="form-control text-uppercase" 
+                        placeholder="Escribe la ubicación">
                 </div>
+
+                <!-- Imagen -->
                 <div class="col-md-6">
-                    <label class="form-label">Imagen (opcional):</label>
+                    <label class="form-label fw-bold">Imagen</label>
                     <input type="file" name="imagen" class="form-control" accept="image/*">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Precio costo:</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="number" step="0.01" name="precio_costo" class="form-control" value="0.00">
-                    </div>
+
+                <!-- Precios -->
+                <div class="col-12">
+                    <h5 class="mt-3 mb-3 text-muted">💰 Precios</h5>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Precio venta distribuidor:</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="number" step="0.01" name="precio_dist" class="form-control" value="0.00">
-                    </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <label class="form-label fw-bold">Precio Costo</label>
+                    <input type="number" step="0.01" name="precio_costo" class="form-control" value="0">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Precio venta integrador:</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="number" step="0.01" name="precio_int" class="form-control" value="0.00">
-                    </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <label class="form-label fw-bold">Precio Distribuidor</label>
+                    <input type="number" step="0.01" name="precio_dist" class="form-control" value="0">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Precio venta general:</label>
-                    <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="number" step="0.01" name="precio_general" class="form-control" value="0.00">
-                    </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <label class="form-label fw-bold">Precio Integrador</label>
+                    <input type="number" step="0.01" name="precio_int" class="form-control" value="0">
                 </div>
-            </div>
-            <div class="d-flex justify-content-end gap-2 mt-4">
-                <button type="submit" class="btn btn-primary px-4">
-                    <i class="bi bi-plus-lg me-1"></i>Agregar producto
-                </button>
-                <a href="{{ url_for('index') }}" class="btn btn-secondary px-4">
-                    <i class="bi bi-x-lg me-1"></i>Cancelar
-                </a>
+
+                <div class="col-md-6 col-lg-3">
+                    <label class="form-label fw-bold">Precio General</label>
+                    <input type="number" step="0.01" name="precio_general" class="form-control" value="0">
+                </div>
+
+                <!-- Botones -->
+                <div class="col-12 mt-4">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle"></i> Guardar Producto
+                    </button>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-lg ms-2">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                </div>
             </div>
         </form>
     </div>
+</div>
 
-    <!-- Toast Container -->
-    <div class="toast-container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
-                  <div class="d-flex">
-                      <div class="toast-body">
-                          {{ message }}
-                      </div>
-                      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+<!-- Toast Container -->
+<div class="toast-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
+              <div class="d-flex">
+                  <div class="toast-body">
+                      {{ message }}
                   </div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
               </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-    </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+</div>
 
-    <script>
-        // Validación visual en tiempo real
-        document.querySelectorAll('input[required], textarea[required], select[required]').forEach(field => {
-            field.addEventListener('blur', () => {
-                if (!field.value.trim()) {
-                    field.classList.add('is-invalid');
-                } else {
-                    field.classList.remove('is-invalid');
-                    field.classList.add('is-valid');
-                }
-            });
-        });
+<script>
+// Convertir a mayúsculas automáticamente
+document.querySelectorAll('.text-uppercase').forEach(input => {
+    input.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+});
 
-        // Validar stock mínimo
-        const cantidadInput = document.querySelector('input[name="cantidad"]');
-        const minimoInput = document.querySelector('input[name="minimo"]');
+// Auto-hide toasts
+setTimeout(() => {
+    document.querySelectorAll('.toast').forEach(toast => {
+        toast.classList.remove('show');
+    });
+}, 5000);
+</script>
 
-        function validarStock() {
-            const cantidad = parseInt(cantidadInput.value) || 0;
-            const minimo = parseInt(minimoInput.value) || 0;
-            
-            if (cantidad <= minimo && cantidad > 0) {
-                cantidadInput.classList.add('border-warning');
-                if (!document.getElementById('stock-warning')) {
-                    const warning = document.createElement('small');
-                    warning.id = 'stock-warning';
-                    warning.className = 'text-warning d-block mt-1';
-                    warning.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Cantidad está por debajo del mínimo';
-                    cantidadInput.parentElement.appendChild(warning);
-                }
-            } else {
-                cantidadInput.classList.remove('border-warning');
-                const warning = document.getElementById('stock-warning');
-                if (warning) warning.remove();
-            }
-        }
-        
-        cantidadInput.addEventListener('input', validarStock);
-        minimoInput.addEventListener('input', validarStock);
-
-        // Auto-hide toasts
-        setTimeout(() => {
-            document.querySelectorAll('.toast').forEach(toast => {
-                toast.classList.remove('show');
-            });
-        }, 5000);
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

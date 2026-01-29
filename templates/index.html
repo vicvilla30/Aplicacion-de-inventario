@@ -72,7 +72,7 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('importar') }}">
-                        <i class="bi bi-cloud-upload"></i> Importar Excel
+                        <i class="bi bi-cloud-upload"></i> Importar / Exportar
                     </a>
                 </li>
                 <li class="nav-item">
@@ -88,20 +88,20 @@
 <div class="container-fluid px-4">
     <!-- resumen -->
     <div class="row mb-3 mt-4 stats">
-        <div class="col-sm-6 col-md-4 mb-2">
+        <div class="col-sm-6 col-md-6 mb-2">
             <div class="card p-3">
                 <div class="d-flex align-items-center">
                     <div class="me-3 display-6 text-muted"><i class="bi bi-box-seam"></i></div>
                     <div>
                         <div class="text-muted small">Total Productos</div>
-                        <div class="fs-4 fw-bold">{{ items|length }}</div>
+                        <div class="fs-4 fw-bold">{{ total_productos }}</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-sm-6 col-md-4 mb-2">
-            <a href="{{ url_for('index', solo_bajo_stock=1, ubicacion=ubicacion_filtro, busqueda=busqueda) }}"
+        <div class="col-sm-6 col-md-6 mb-2">
+            <a href="{{ url_for('index', solo_bajo_stock=1, busqueda=busqueda) }}"
                class="card p-3 text-decoration-none text-reset" style="display:block">
                 <div class="d-flex align-items-center">
                     <div class="me-3 display-6 text-danger">
@@ -109,21 +109,7 @@
                     </div>
                     <div>
                         <div class="text-muted small">Bajo Stock</div>
-                        <div class="fs-4 fw-bold text-danger">{{ low_count }}</div>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-sm-6 col-md-4 mb-2">
-            <a href="{{ url_for('importar') }}" class="card p-3 text-decoration-none text-reset" style="display:block">
-                <div class="d-flex align-items-center">
-                    <div class="me-3 display-6 text-success">
-                        <i class="bi bi-cloud-upload"></i>
-                    </div>
-                    <div>
-                        <div class="text-muted small">Importar</div>
-                        <div class="fs-6 fw-bold text-success">Desde Excel</div>
+                        <div class="fs-4 fw-bold text-danger">{{ total_bajo_stock }}</div>
                     </div>
                 </div>
             </a>
@@ -132,40 +118,19 @@
 
     {% if request.args.get('solo_bajo_stock') %}
         <div class="mb-3">
-            <a href="{{ url_for('index', ubicacion=ubicacion_filtro, busqueda=busqueda) }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('index', busqueda=busqueda) }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Ver todos los productos
             </a>
         </div>
     {% endif %}
 
     <form method="get" class="row g-2 align-items-center mb-3" id="searchForm">
-        <div class="col-sm-8 col-md-4 position-relative search-input">
+        <div class="col-md-8 position-relative search-input">
             <i class="bi bi-search"></i>
-            <input id="busqueda" name="busqueda" type="search" class="form-control" placeholder="Buscar por código, descripción o marca" value="{{ busqueda }}">
-        </div>
-        <div class="col-sm-4 col-md-3">
-            <select id="ubicacion" name="ubicacion" class="form-select">
-                <option value="">Todas las ubicaciones</option>
-                <optgroup label="📍 Ubicaciones Fijas">
-                    {% for u in ubicaciones_fijas %}
-                        <option value="{{ u['NOMBRE'] }}" {% if ubicacion_filtro == u['NOMBRE'] %}selected{% endif %}>
-                            {{ u['NOMBRE'] }}
-                        </option>
-                    {% endfor %}
-                </optgroup>
-                <optgroup label="📁 Proyectos">
-                    {% for p in proyectos %}
-                        <option value="{{ p['NOMBRE'] }}" {% if ubicacion_filtro == p['NOMBRE'] %}selected{% endif %}>
-                            {{ p['NOMBRE'] }}
-                        </option>
-                    {% endfor %}
-                </optgroup>
-            </select>
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-funnel"></i> Filtrar
-            </button>
+            <input id="busqueda" name="busqueda" type="search" class="form-control" 
+                   placeholder="Buscar por código, marca, descripción o ubicación" 
+                   value="{{ busqueda }}"
+                   autofocus>
         </div>
         <div class="col-auto">
             <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
@@ -173,6 +138,16 @@
             </a>
         </div>
     </form>
+
+    <!-- Contador de resultados filtrados -->
+    {% if busqueda or request.args.get('solo_bajo_stock') %}
+        <div class="mb-3">
+            <div class="alert alert-info d-inline-block py-2 mb-0">
+                <i class="bi bi-funnel-fill"></i> 
+                Mostrando <strong>{{ items|length }}</strong> de <strong>{{ total_productos }}</strong> productos
+            </div>
+        </div>
+    {% endif %}
 
     <form id="tabla-form" method="post" action="{{ url_for('exportar_seleccionados') }}">
         <div class="table-responsive shadow-sm bg-white rounded">
@@ -250,7 +225,7 @@
             <button type="submit" class="btn btn-success">
                 <i class="bi bi-file-earmark-excel"></i> Exportar seleccionados a Excel
             </button>
-            <a href="{{ url_for('exportar', ubicacion=ubicacion_filtro, busqueda=busqueda) }}" class="btn btn-outline-success">
+            <a href="{{ url_for('exportar', busqueda=busqueda) }}" class="btn btn-outline-success">
                 <i class="bi bi-download"></i> Exportar todo
             </a>
         </div>
@@ -307,25 +282,30 @@ document.getElementById('checkAll').onclick = function() {
 // Búsqueda en tiempo real
 let searchTimeout;
 const searchInput = document.getElementById('busqueda');
-const ubicacionInput = document.getElementById('ubicacion');
 
 function realizarBusqueda() {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
+        // Guardar posición del cursor antes del submit
+        const cursorPosition = searchInput.selectionStart;
+        sessionStorage.setItem('searchCursorPosition', cursorPosition);
+        
         const form = searchInput.closest('form');
         form.submit();
-    }, 600);
+    }, 1000);  // ← 1 segundo
 }
 
 if (searchInput) {
     searchInput.addEventListener('input', realizarBusqueda);
-}
-
-// Auto-submit al cambiar ubicación
-if (ubicacionInput) {
-    ubicacionInput.addEventListener('change', () => {
-        const form = ubicacionInput.closest('form');
-        form.submit();
+    
+    // Restaurar posición del cursor después de cargar la página
+    window.addEventListener('load', () => {
+        const savedPosition = sessionStorage.getItem('searchCursorPosition');
+        if (savedPosition !== null) {
+            searchInput.focus();
+            searchInput.setSelectionRange(savedPosition, savedPosition);
+            sessionStorage.removeItem('searchCursorPosition');
+        }
     });
 }
 
