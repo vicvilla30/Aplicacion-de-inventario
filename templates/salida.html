@@ -2,64 +2,177 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Salida de inventario</title>
+    <title>Salida de Producto — Inventario</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         :root{
             --accent:#0d6efd;
+            --danger-strong:#b71c1c;
         }
+        
         body { background: #f8f9fa; }
+        
+        /* Estilos del navbar */
+        .navbar-nav .nav-link {
+            font-weight: bold;
+            color: white !important;
+        }
+        .navbar-nav .nav-link:hover {
+            color: #e0e0e0 !important;
+        }
+        .navbar-nav .nav-link.active {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 0.5rem;
+        }
+        
+        /* Estilos del formulario */
         .form-modern {
             background: #fff;
             border-radius: 1.2rem;
             box-shadow: 0 2px 16px rgba(13,110,253,0.07);
             padding: 2.5rem 2rem;
-            max-width: 500px;
+            max-width: 700px;
             margin: 2.5rem auto;
         }
+        .form-label { 
+            color: var(--accent); 
+            font-weight: 500; 
+        }
+        .form-control:focus, .form-select:focus { 
+            border-color: var(--accent); 
+            box-shadow: 0 0 0 0.12rem rgba(13,110,253,.15); 
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+        }
+        
         @media (max-width: 991px) {
-            .form-modern { padding: 1.2rem 0.5rem; }
+            .form-modern { 
+                padding: 1.2rem 0.5rem; 
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand bg-white border-bottom mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #003d82;">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('index') }}">
                 <img src="{{ url_for('static', filename='logo.png') }}"
                      alt="LSI Group"
-                     style="height:40px; margin-right:10px;"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block'">
-                <span style="display:none;">LSI Group</span>
-                <span class="ms-1">📦 Inventario</span>
+                     style="height:45px; margin-right:12px; background:white; padding:6px; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                     onerror="this.style.display='none'">
+                <span>📦 Inventario LSI</span>
             </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('index') }}">
+                            <i class="bi bi-house"></i> Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('agregar') }}">
+                            <i class="bi bi-plus-circle"></i> Agregar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('importar') }}">
+                            <i class="bi bi-cloud-upload"></i> Importar Excel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
+                            <i class="bi bi-folder-plus"></i> Proyectos
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
+
     <div class="form-modern">
-        <h2 class="mb-4 text-primary"><i class="bi bi-box-arrow-up me-2"></i>Registrar salida de: {{ item['DESCRIPCION'] }}</h2>
+        <h2 class="mb-4 text-danger">
+            <i class="bi bi-box-arrow-up me-2"></i>Registrar salida
+        </h2>
+        
+        <div class="alert alert-info mb-4">
+            <strong>Producto:</strong> {{ item['DESCRIPCION'] }}<br>
+            <strong>Código:</strong> {{ item['CODIGO'] }}<br>
+            <strong>Stock disponible:</strong> <span class="badge bg-primary">{{ item['CANTIDAD'] }}</span>
+        </div>
+
         <form method="post">
             <div class="mb-3">
-                <label class="form-label">Cantidad a retirar</label>
-                <input type="number" name="cantidad" class="form-control" min="1" max="{{ item['CANTIDAD'] }}" required>
+                <label class="form-label">Cantidad a retirar <span class="text-danger">*</span></label>
+                <input type="number" name="cantidad" class="form-control" min="1" max="{{ item['CANTIDAD'] }}" required autofocus>
+                <small class="text-muted">Máximo disponible: {{ item['CANTIDAD'] }}</small>
             </div>
+
+            <div class="mb-3">
+                <label class="form-label">Proyecto (opcional)</label>
+                <select name="proyecto" class="form-select">
+                    <option value="">Sin proyecto</option>
+                    {% for p in proyectos %}
+                        <option value="{{ p['NOMBRE'] }}">{{ p['NOMBRE'] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div class="mb-3">
                 <label class="form-label">Observación (opcional)</label>
-                <input type="text" name="observacion" class="form-control">
+                <textarea name="observacion" class="form-control" rows="2" placeholder="Ej: Instalación, venta, préstamo..."></textarea>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Proyecto (Ej: LS-500)</label>
-                <input type="text" name="proyecto" class="form-control" placeholder="LS-500">
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-box-arrow-up me-1"></i>Registrar salida
+                </button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-lg me-1"></i>Cancelar
+                </a>
             </div>
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-box-arrow-up me-1"></i>Registrar salida
-            </button>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                <i class="bi bi-x-lg me-1"></i>Cancelar
-            </a>
         </form>
     </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
+                  <div class="d-flex">
+                      <div class="toast-body">
+                          {{ message }}
+                      </div>
+                      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                  </div>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+
+    <script>
+        // Auto-hide toasts
+        setTimeout(() => {
+            document.querySelectorAll('.toast').forEach(toast => {
+                toast.classList.remove('show');
+            });
+        }, 5000);
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

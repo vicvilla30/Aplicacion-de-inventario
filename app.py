@@ -25,28 +25,25 @@ def get_db_connection():
 
 def obtener_ubicaciones():
     conn = get_db_connection()
-
     ubicaciones_fijas = conn.execute("""
         SELECT nombre AS NOMBRE
         FROM ubicaciones
         WHERE tipo = 'FIJA' AND activa = 1
         ORDER BY nombre
     """).fetchall()
-
     proyectos = conn.execute("""
         SELECT nombre AS NOMBRE
         FROM ubicaciones
         WHERE tipo = 'PROYECTO' AND activa = 1
         ORDER BY nombre
     """).fetchall()
-
     conn.close()
     return ubicaciones_fijas, proyectos
 
-
-
 def init_db():
     conn = get_db_connection()
+    
+    # Tabla inventario
     conn.execute("""
     CREATE TABLE IF NOT EXISTS inventario (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +61,8 @@ def init_db():
         IMAGEN TEXT
     )
     """)
+    
+    # Tabla movimientos
     conn.execute("""
     CREATE TABLE IF NOT EXISTS movimientos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +75,28 @@ def init_db():
         FOREIGN KEY (inventario_id) REFERENCES inventario(id)
     )
     """)
+    
+    # Tabla ubicaciones
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS ubicaciones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT UNIQUE NOT NULL,
+        tipo TEXT DEFAULT 'FIJA',
+        activa INTEGER DEFAULT 1
+    )
+    """)
+    
+    # Insertar ubicaciones por defecto
+    ubicaciones_default = ['BODEGA', 'OFICINA', 'ALMACEN', 'TALLER']
+    for ub in ubicaciones_default:
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO ubicaciones (nombre, tipo) VALUES (?, 'FIJA')",
+                (ub,)
+            )
+        except:
+            pass
+    
     conn.commit()
     conn.close()
 
@@ -142,11 +163,16 @@ def index():
     items = conn.execute(query, params).fetchall()
     conn.close()
     low_count = sum(1 for item in items if item["CANTIDAD"] <= item["MINIMO"])
+    
+    ubicaciones_fijas, proyectos = obtener_ubicaciones()
+    
     return render_template("index.html",
         items=items,
         ubicacion_filtro=ubicacion_filtro,
         busqueda=busqueda,
-        low_count=low_count
+        low_count=low_count,
+        ubicaciones_fijas=ubicaciones_fijas,
+        proyectos=proyectos
     )
 
 @app.route("/exportar_seleccionados", methods=["POST"])
@@ -211,6 +237,7 @@ def agregar():
         if nuevo and nuevo["CANTIDAD"] <= nuevo["MINIMO"]:
             enviar_alerta_stock(nuevo)
         conn.close()
+        flash("Producto agregado correctamente.", "success")
         return redirect(url_for("index"))
     
     ubicaciones_fijas, proyectos = obtener_ubicaciones()
@@ -242,7 +269,15 @@ def crear_proyecto():
 
         return redirect(url_for("crear_proyecto"))
 
-    return render_template("crear_proyecto.html")
+    conn = get_db_connection()
+    proyectos = conn.execute("""
+        SELECT * FROM ubicaciones 
+        WHERE tipo = 'PROYECTO' 
+        ORDER BY nombre DESC
+    """).fetchall()
+    conn.close()
+    
+    return render_template("crear_proyecto.html", proyectos=proyectos)
 
 @app.route("/entrada/<int:id>", methods=["GET", "POST"])
 def entrada(id):
@@ -270,25 +305,24 @@ def entrada(id):
         conn.close()
         flash("Entrada registrada correctamente.", "success")
         return redirect(url_for("index"))
+    
+    ubicaciones_fijas, proyectos = obtener_ubicaciones()
     conn.close()
-    return render_template("entrada.html", item=item)
+    return render_template("entrada.html", item=item, proyectos=proyectos)
 
 @app.route("/editar/<int:id>", methods=["GET", "POST"])
 def editar(id):
-
-    # -------- LECTURA (una conexión) --------
     conn = get_db_connection()
     item = conn.execute(
         "SELECT * FROM inventario WHERE id = ?",
         (id,)
     ).fetchone()
-    conn.close()   # <-- 🔴 IMPORTANTE CERRAR AQUI
+    conn.close()
 
     if not item:
         flash("Producto no encontrado", "danger")
         return redirect(url_for("index"))
 
-    # -------- ACTUALIZACIÓN (otra conexión) --------
     if request.method == "POST":
         marca = request.form.get("marca", "").strip()
         codigo = request.form.get("codigo", "").strip()
@@ -323,9 +357,7 @@ def editar(id):
 
                 imagen = unique_name
 
-        # 🔵 NUEVA CONEXIÓN SOLO PARA ESCRIBIR
         conn = get_db_connection()
-
         conn.execute("""
             UPDATE inventario SET 
                 MARCA=?, CODIGO=?, DESCRIPCION=?, CANTIDAD=?, MINIMO=?, UBICACION=?, SERIAL=?,
@@ -335,12 +367,11 @@ def editar(id):
             marca, codigo, descripcion, cantidad, minimo, ubicacion, serial,
             precio_costo, precio_dist, precio_int, precio_general, imagen, id
         ))
-
         conn.commit()
         conn.close()
+        flash("Producto actualizado correctamente.", "success")
         return redirect(url_for("index"))
 
-    # -------- LECTURA DE UBICACIONES (otra conexión) --------
     ubicaciones_fijas, proyectos = obtener_ubicaciones()
 
     return render_template(
@@ -350,13 +381,13 @@ def editar(id):
         proyectos=proyectos
     )
 
-
 @app.route("/eliminar/<int:id>")
 def eliminar(id):
     conn = get_db_connection()
     conn.execute("DELETE FROM inventario WHERE id = ?", (id,))
     conn.commit()
     conn.close()
+    flash("Producto eliminado correctamente.", "success")
     return redirect(url_for("index"))
 
 @app.route("/detalle/<int:id>")
@@ -388,7 +419,6 @@ def salida(id):
         """, (id, cantidad, fecha, observacion, proyecto))
         nueva_cantidad = item["CANTIDAD"] - cantidad
         conn.execute("UPDATE inventario SET CANTIDAD = ? WHERE id = ?", (nueva_cantidad, id))
-        # Consultar stock actualizado y enviar alerta si queda bajo stock
         producto_actualizado = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
         if producto_actualizado and producto_actualizado["CANTIDAD"] <= producto_actualizado["MINIMO"]:
             enviar_alerta_stock(producto_actualizado)
@@ -396,8 +426,10 @@ def salida(id):
         conn.close()
         flash("Salida registrada correctamente.", "success")
         return redirect(url_for("index"))
+    
+    ubicaciones_fijas, proyectos = obtener_ubicaciones()
     conn.close()
-    return render_template("salida.html", item=item)
+    return render_template("salida.html", item=item, proyectos=proyectos)
 
 @app.route("/exportar")
 def exportar():
@@ -427,6 +459,132 @@ def movimientos(id):
     movimientos = conn.execute("SELECT * FROM movimientos WHERE inventario_id = ? ORDER BY fecha DESC", (id,)).fetchall()
     conn.close()
     return render_template("movimientos.html", item=item, movimientos=movimientos)
+
+@app.route("/importar", methods=["GET", "POST"])
+def importar():
+    if request.method == "POST":
+        if "archivo" not in request.files:
+            flash("No se seleccionó ningún archivo", "warning")
+            return redirect(url_for("importar"))
+        
+        file = request.files["archivo"]
+        if file.filename == "":
+            flash("No se seleccionó ningún archivo", "warning")
+            return redirect(url_for("importar"))
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash("Solo se permiten archivos Excel (.xlsx, .xls)", "danger")
+            return redirect(url_for("importar"))
+        
+        try:
+            df = pd.read_excel(file)
+            
+            columnas_requeridas = ['MARCA', 'CODIGO', 'DESCRIPCION']
+            columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
+            
+            if columnas_faltantes:
+                flash(f"Faltan columnas requeridas: {', '.join(columnas_faltantes)}", "danger")
+                return redirect(url_for("importar"))
+            
+            conn = get_db_connection()
+            insertados = 0
+            actualizados = 0
+            errores = []
+            
+            for index, row in df.iterrows():
+                try:
+                    existe = conn.execute(
+                        "SELECT id FROM inventario WHERE CODIGO = ?", 
+                        (str(row['CODIGO']),)
+                    ).fetchone()
+                    
+                    datos = {
+                        'marca': str(row.get('MARCA', '')),
+                        'codigo': str(row.get('CODIGO', '')),
+                        'descripcion': str(row.get('DESCRIPCION', '')),
+                        'cantidad': to_int(row.get('CANTIDAD', 0)),
+                        'minimo': to_int(row.get('MINIMO', 0)),
+                        'ubicacion': str(row.get('UBICACION', 'BODEGA')),
+                        'serial': str(row.get('SERIAL', '')),
+                        'precio_costo': to_float(row.get('PRECIO_COSTO', 0)),
+                        'precio_dist': to_float(row.get('PRECIO_DIST', 0)),
+                        'precio_int': to_float(row.get('PRECIO_INT', 0)),
+                        'precio_general': to_float(row.get('PRECIO_GENERAL', 0)),
+                    }
+                    
+                    if existe:
+                        conn.execute("""
+                            UPDATE inventario SET 
+                                MARCA=?, DESCRIPCION=?, CANTIDAD=?, MINIMO=?, 
+                                UBICACION=?, SERIAL=?, PRECIO_COSTO=?, PRECIO_DIST=?, 
+                                PRECIO_INT=?, PRECIO_GENERAL=?
+                            WHERE CODIGO=?
+                        """, (
+                            datos['marca'], datos['descripcion'], datos['cantidad'],
+                            datos['minimo'], datos['ubicacion'], datos['serial'],
+                            datos['precio_costo'], datos['precio_dist'], datos['precio_int'],
+                            datos['precio_general'], datos['codigo']
+                        ))
+                        actualizados += 1
+                    else:
+                        conn.execute("""
+                            INSERT INTO inventario 
+                            (MARCA, CODIGO, DESCRIPCION, CANTIDAD, MINIMO, UBICACION, SERIAL,
+                             PRECIO_COSTO, PRECIO_DIST, PRECIO_INT, PRECIO_GENERAL)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            datos['marca'], datos['codigo'], datos['descripcion'],
+                            datos['cantidad'], datos['minimo'], datos['ubicacion'],
+                            datos['serial'], datos['precio_costo'], datos['precio_dist'],
+                            datos['precio_int'], datos['precio_general']
+                        ))
+                        insertados += 1
+                
+                except Exception as e:
+                    errores.append(f"Fila {index + 2}: {str(e)}")
+            
+            conn.commit()
+            conn.close()
+            
+            mensaje = f"✅ Importación completa: {insertados} insertados, {actualizados} actualizados"
+            if errores:
+                mensaje += f". {len(errores)} errores."
+                for err in errores[:5]:
+                    flash(err, "warning")
+            
+            flash(mensaje, "success")
+            return redirect(url_for("index"))
+        
+        except Exception as e:
+            flash(f"Error al procesar el archivo: {str(e)}", "danger")
+            return redirect(url_for("importar"))
+    
+    return render_template("importar.html")
+
+@app.route("/descargar_plantilla")
+def descargar_plantilla():
+    conn = get_db_connection()
+    items = conn.execute("SELECT * FROM inventario ORDER BY id").fetchall()
+    conn.close()
+    
+    if not items:
+        flash("No hay productos en el inventario para exportar.", "warning")
+        return redirect(url_for("importar"))
+    
+    # Convertir a DataFrame
+    df = pd.DataFrame([dict(item) for item in items])
+    
+    # Seleccionar solo las columnas necesarias (sin id ni IMAGEN)
+    columnas_exportar = [
+        'MARCA', 'CODIGO', 'DESCRIPCION', 'CANTIDAD', 'MINIMO', 
+        'UBICACION', 'SERIAL', 'PRECIO_COSTO', 'PRECIO_DIST', 
+        'PRECIO_INT', 'PRECIO_GENERAL'
+    ]
+    df = df[columnas_exportar]
+    
+    export_path = os.path.join("static", "inventario_LSI.xlsx")
+    df.to_excel(export_path, index=False)
+    return send_file(export_path, as_attachment=True)
 
 if __name__ == "__main__":
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
