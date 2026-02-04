@@ -61,7 +61,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('index') }}">
+                    <a class="nav-link active" href="{{ url_for('index') }}">
                         <i class="bi bi-house"></i> Inicio
                     </a>
                 </li>
@@ -79,6 +79,21 @@
                     <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
                         <i class="bi bi-folder-plus"></i> Proyectos
                     </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ session.get('nombre_completo', 'Usuario') }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text small text-muted">@{{ session.get('username') }}</span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('cambiar_password') }}">
+                            <i class="bi bi-key"></i> Cambiar Contraseña
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                        </a></li>
+                    </ul>
                 </li>
             </ul>
         </div>
@@ -163,9 +178,6 @@
                         <th class="text-muted small">Ubicación</th>
                         <th class="text-muted small">Estado</th>
                         <th class="text-end text-muted small">Acciones</th>
-                        <th class="text-muted small">Entrada</th>
-                        <th class="text-muted small">Salida</th>
-                        <th class="text-muted small">Historial</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -199,24 +211,9 @@
                                 <a href="{{ url_for('eliminar', id=item['id']) }}" class="btn btn-sm btn-outline-danger btn-delete" title="Eliminar"><i class="bi bi-trash"></i></a>
                             </div>
                         </td>
-                        <td>
-                            <a href="{{ url_for('entrada', id=item['id']) }}" class="btn btn-sm btn-success" title="Registrar entrada">
-                                <i class="bi bi-box-arrow-in-down"></i>
-                            </a>
-                        </td>
-                        <td>
-                            <a href="{{ url_for('salida', id=item['id']) }}" class="btn btn-sm btn-secondary" title="Registrar salida">
-                                <i class="bi bi-box-arrow-up"></i>
-                            </a>
-                        </td>
-                        <td>
-                            <a href="{{ url_for('movimientos', id=item['id']) }}" class="btn btn-sm btn-info" title="Ver movimientos">
-                                <i class="bi bi-clock-history"></i>
-                            </a>
-                        </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="12" class="text-center py-4 text-muted">No hay productos</td></tr>
+                    <tr><td colspan="9" class="text-center py-4 text-muted">No hay productos</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
@@ -286,19 +283,17 @@ const searchInput = document.getElementById('busqueda');
 function realizarBusqueda() {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
-        // Guardar posición del cursor antes del submit
         const cursorPosition = searchInput.selectionStart;
         sessionStorage.setItem('searchCursorPosition', cursorPosition);
         
         const form = searchInput.closest('form');
         form.submit();
-    }, 1000);  // ← 1 segundo
+    }, 1000);
 }
 
 if (searchInput) {
     searchInput.addEventListener('input', realizarBusqueda);
     
-    // Restaurar posición del cursor después de cargar la página
     window.addEventListener('load', () => {
         const savedPosition = sessionStorage.getItem('searchCursorPosition');
         if (savedPosition !== null) {

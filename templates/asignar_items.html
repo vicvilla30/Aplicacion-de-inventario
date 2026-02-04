@@ -2,14 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Asignar Productos al Proyecto</title>
+    <title>Asignar Productos - Inventario LSI</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background: #f8f9fa; }
-        .form-container { max-width: 800px; margin: 2rem auto; }
-        .card { border: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        /* Estilos del navbar */
         .navbar-nav .nav-link {
             font-weight: bold;
             color: white !important;
@@ -17,18 +15,48 @@
         .navbar-nav .nav-link:hover {
             color: #e0e0e0 !important;
         }
-        .project-info {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem;
+        .navbar-nav .nav-link.active {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.15);
             border-radius: 0.5rem;
-            margin-bottom: 1.5rem;
+        }
+        
+        body { background: #f8f9fa; }
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-top: 30px;
         }
         .toast-container {
             position: fixed;
             top: 80px;
             right: 20px;
             z-index: 9999;
+        }
+        .product-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .search-box {
+            position: relative;
+        }
+        .search-box .bi-search {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        .search-box input {
+            padding-left: 38px;
+        }
+        .select-filterable {
+            max-height: 300px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -61,66 +89,118 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('importar') }}">
-                        <i class="bi bi-cloud-upload"></i> Importar / Exportar
+                        <i class="bi bi-cloud-upload"></i> Importar Excel
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
+                    <a class="nav-link active" href="{{ url_for('crear_proyecto') }}">
                         <i class="bi bi-folder-plus"></i> Proyectos
                     </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ session.get('nombre_completo', 'Usuario') }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text small text-muted">@{{ session.get('username') }}</span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('cambiar_password') }}">
+                            <i class="bi bi-key"></i> Cambiar Contraseña
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                        </a></li>
+                    </ul>
                 </li>
             </ul>
         </div>
     </div>
 </nav>
 
-<div class="form-container">
-    <div class="project-info shadow">
-    <h4 class="text-center mb-3">SALIDA DE INVENTARIO</h4>
-    <div class="row text-white">
-        <div class="col-md-6">
-            <strong>Proyecto:</strong> {{ proyecto['nombre'] }}
+<div class="container">
+    <div class="form-card">
+        <h2 class="mb-4">
+            <i class="bi bi-plus-square text-primary"></i> Asignar Productos al Proyecto
+        </h2>
+        
+        <div class="alert alert-info">
+            <i class="bi bi-folder"></i> <strong>Proyecto:</strong> {{ proyecto['nombre'] }}
+            {% if proyecto['descripcion'] %}
+                <br><i class="bi bi-person"></i> <strong>Cliente:</strong> {{ proyecto['descripcion'] }}
+            {% endif %}
         </div>
-        <div class="col-md-6">
-            <strong>Solicitado por:</strong> {{ proyecto['descripcion'] or 'N/A' }}
-        </div>
-    </div>
-</div>
-
-    <div class="card p-4">
-        <h3 class="mb-4">
-            <i class="bi bi-plus-circle text-success"></i> Asignar Productos al Proyecto
-        </h3>
-
+        
         <form method="post">
             <div class="mb-3">
-                <label class="form-label fw-bold">Producto <span class="text-danger">*</span></label>
-                <select name="inventario_id" class="form-select" required id="productoSelect">
-                    <option value="">Seleccionar producto...</option>
-                    {% for p in productos %}
-                        <option value="{{ p['id'] }}" data-stock="{{ p['CANTIDAD'] }}">
-                            {{ p['CODIGO'] }} - {{ p['DESCRIPCION'] }} (Stock: {{ p['CANTIDAD'] }})
+                <label class="form-label fw-bold">Buscar Producto <span class="text-danger">*</span></label>
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" 
+                           id="searchInput" 
+                           class="form-control" 
+                           placeholder="Buscar por código, descripción, marca o ubicación..."
+                           autocomplete="off">
+                </div>
+                <small class="text-muted">Escribe para filtrar los productos disponibles</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Seleccionar Producto <span class="text-danger">*</span></label>
+                <select name="inventario_id" id="producto" class="form-select select-filterable" size="8" required>
+                    <option value="">-- Seleccione un producto --</option>
+                    {% for prod in productos %}
+                        <option value="{{ prod['id'] }}" 
+                                data-codigo="{{ prod['CODIGO'] }}"
+                                data-descripcion="{{ prod['DESCRIPCION'] }}"
+                                data-marca="{{ prod['MARCA'] }}"
+                                data-ubicacion="{{ prod['UBICACION'] }}"
+                                data-stock="{{ prod['CANTIDAD'] }}"
+                                data-search="{{ (prod['CODIGO'] + ' ' + prod['DESCRIPCION'] + ' ' + prod['MARCA'] + ' ' + prod['UBICACION'])|lower }}">
+                            [{{ prod['CODIGO'] }}] {{ prod['DESCRIPCION'] }} - {{ prod['MARCA'] }} | Ubicación: {{ prod['UBICACION'] }} | Stock: {{ prod['CANTIDAD'] }}
                         </option>
                     {% endfor %}
                 </select>
+                <small class="text-muted" id="resultCount">Mostrando {{ productos|length }} productos</small>
             </div>
-
-            <div class="mb-3">
-                <label class="form-label fw-bold">Cantidad <span class="text-danger">*</span></label>
-                <input type="number" name="cantidad" class="form-control" min="1" required id="cantidadInput">
-                <small class="text-muted" id="stockInfo"></small>
+            
+            <div id="productInfo" class="product-info" style="display: none;">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Código:</strong> <span id="infoCodigo"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Marca:</strong> <span id="infoMarca"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Ubicación:</strong> <span id="infoUbicacion"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Stock disponible:</strong> <span id="infoStock" class="text-success fw-bold"></span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <strong>Descripción:</strong> <span id="infoDescripcion"></span>
+                </div>
             </div>
-
-            <div class="mb-3">
-                <label class="form-label fw-bold">Observación (opcional)</label>
-                <textarea name="observacion" class="form-control text-uppercase" rows="3"></textarea>
+            
+            <div class="row mt-3">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Cantidad a Asignar <span class="text-danger">*</span></label>
+                    <input type="number" name="cantidad" id="cantidad" class="form-control" min="1" required>
+                    <div class="form-text">Máximo disponible: <span id="maxStock">0</span></div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Observación</label>
+                    <input type="text" name="observacion" class="form-control" placeholder="Ej: Para instalación">
+                </div>
             </div>
-
+            
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-success btn-lg">
-                    <i class="bi bi-check-circle"></i> Asignar al Proyecto
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle"></i> Asignar Producto
                 </button>
-                <a href="{{ url_for('detalle_proyecto', id=proyecto['id']) }}" class="btn btn-outline-secondary btn-lg">
+                <a href="{{ url_for('detalle_proyecto', id=proyecto['id']) }}" class="btn btn-secondary">
                     <i class="bi bi-x-circle"></i> Cancelar
                 </a>
             </div>
@@ -135,9 +215,7 @@
         {% for category, message in messages %}
           <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
               <div class="d-flex">
-                  <div class="toast-body">
-                      {{ message }}
-                  </div>
+                  <div class="toast-body">{{ message }}</div>
                   <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
               </div>
           </div>
@@ -147,28 +225,82 @@
 </div>
 
 <script>
-// Convertir a mayúsculas automáticamente
-document.querySelectorAll('.text-uppercase').forEach(input => {
-    input.addEventListener('input', function() {
-        this.value = this.value.toUpperCase();
+const searchInput = document.getElementById('searchInput');
+const selectProducto = document.getElementById('producto');
+const resultCount = document.getElementById('resultCount');
+const allOptions = Array.from(selectProducto.options).slice(1); // Excluir primera opción
+
+// Filtrar productos en tiempo real
+searchInput.addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase().trim();
+    let visibleCount = 0;
+    
+    // Limpiar selección
+    selectProducto.selectedIndex = 0;
+    document.getElementById('productInfo').style.display = 'none';
+    
+    allOptions.forEach(option => {
+        const searchData = option.getAttribute('data-search');
+        
+        if (searchTerm === '' || searchData.includes(searchTerm)) {
+            option.style.display = '';
+            visibleCount++;
+        } else {
+            option.style.display = 'none';
+        }
     });
+    
+    // Actualizar contador
+    resultCount.textContent = `Mostrando ${visibleCount} de ${allOptions.length} productos`;
+    
+    // Si solo queda 1 resultado, seleccionarlo automáticamente
+    if (visibleCount === 1) {
+        const visibleOption = allOptions.find(opt => opt.style.display !== 'none');
+        if (visibleOption) {
+            visibleOption.selected = true;
+            selectProducto.dispatchEvent(new Event('change'));
+        }
+    }
 });
 
-// Mostrar stock disponible
-const productoSelect = document.getElementById('productoSelect');
-const cantidadInput = document.getElementById('cantidadInput');
-const stockInfo = document.getElementById('stockInfo');
+// Hacer foco en el select al presionar Enter en el input
+searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        selectProducto.focus();
+        
+        // Seleccionar el primer elemento visible
+        const firstVisible = allOptions.find(opt => opt.style.display !== 'none');
+        if (firstVisible) {
+            firstVisible.selected = true;
+            selectProducto.dispatchEvent(new Event('change'));
+        }
+    }
+});
 
-productoSelect.addEventListener('change', function() {
-    const selectedOption = this.options[this.selectedIndex];
-    const stock = selectedOption.getAttribute('data-stock');
+// Mostrar información del producto seleccionado
+selectProducto.addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
     
-    if (stock) {
-        cantidadInput.max = stock;
-        stockInfo.textContent = `Stock disponible: ${stock}`;
+    if (this.value) {
+        const codigo = selected.getAttribute('data-codigo');
+        const descripcion = selected.getAttribute('data-descripcion');
+        const marca = selected.getAttribute('data-marca');
+        const ubicacion = selected.getAttribute('data-ubicacion');
+        const stock = selected.getAttribute('data-stock');
+        
+        document.getElementById('infoCodigo').textContent = codigo;
+        document.getElementById('infoDescripcion').textContent = descripcion;
+        document.getElementById('infoMarca').textContent = marca;
+        document.getElementById('infoUbicacion').textContent = ubicacion;
+        document.getElementById('infoStock').textContent = stock;
+        document.getElementById('maxStock').textContent = stock;
+        document.getElementById('cantidad').max = stock;
+        document.getElementById('cantidad').value = 1;
+        
+        document.getElementById('productInfo').style.display = 'block';
     } else {
-        cantidadInput.max = '';
-        stockInfo.textContent = '';
+        document.getElementById('productInfo').style.display = 'none';
     }
 });
 
@@ -178,6 +310,11 @@ setTimeout(() => {
         toast.classList.remove('show');
     });
 }, 5000);
+
+// Hacer foco automático en el input de búsqueda
+window.addEventListener('load', () => {
+    searchInput.focus();
+});
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

@@ -2,18 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Detalle del Producto — Inventario</title>
+    <title>Detalle del Producto - Inventario LSI</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        :root{
-            --accent:#0d6efd;
-            --danger-strong:#b71c1c;
-        }
-        
-        body { background: #f8f9fa; }
-        
         /* Estilos del navbar */
         .navbar-nav .nav-link {
             font-weight: bold;
@@ -28,253 +21,230 @@
             border-radius: 0.5rem;
         }
         
-        /* Estilos del detalle */
-        .detalle-modern {
-            background: #fff;
-            border-radius: 1.2rem;
-            box-shadow: 0 2px 16px rgba(13,110,253,0.07);
-            padding: 2.5rem 2rem;
-            max-width: 1200px;
-            margin: 2.5rem auto;
+        body { background: #f8f9fa; }
+        .detail-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-top: 30px;
         }
-        .detalle-modern h1 {
-            font-size: 2rem;
-            color: var(--accent);
+        .product-img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .info-row {
+            border-bottom: 1px solid #e9ecef;
+            padding: 12px 0;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
             font-weight: bold;
-            margin-bottom: 2rem;
-            text-align: center;
+            color: #495057;
         }
-        .img-preview {
-            max-height: 300px;
-            border: 2px solid #dee2e6;
-            border-radius: 1rem;
-            object-fit: cover;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .table-detail dt {
-            font-weight: 600;
-            color: var(--accent);
-        }
-        .table-detail dd {
-            margin-bottom: 0.5rem;
-        }
-        
-        .toast-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 9999;
-        }
-        
-        @media (max-width: 991px) {
-            .detalle-modern { 
-                padding: 1.5rem 1rem; 
-            }
-            .img-preview {
-                max-height: 200px;
-            }
+        .badge-custom {
+            font-size: 14px;
+            padding: 8px 12px;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #003d82;">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='logo.png') }}"
-                     alt="LSI Group"
-                     style="height:45px; margin-right:12px; background:white; padding:6px; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
-                     onerror="this.style.display='none'">
-                <span>📦 Inventario LSI</span>
-            </a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('index') }}">
-                            <i class="bi bi-house"></i> Inicio
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('agregar') }}">
-                            <i class="bi bi-plus-circle"></i> Agregar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('importar') }}">
-                            <i class="bi bi-cloud-upload"></i> Importar / Exportar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
-                            <i class="bi bi-folder-plus"></i> Proyectos
-                        </a>
-                    </li>
-                </ul>
-            </div>
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #003d82;">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold d-flex align-items-center" href="{{ url_for('index') }}">
+            <img src="{{ url_for('static', filename='logo.png') }}"
+                 alt="LSI Group"
+                 style="height:45px; margin-right:12px; background:white; padding:6px; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                 onerror="this.style.display='none'">
+            <span>📦 Inventario LSI</span>
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('index') }}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('agregar') }}">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('importar') }}">
+                        <i class="bi bi-cloud-upload"></i> Importar / Exportar
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('crear_proyecto') }}">
+                        <i class="bi bi-folder-plus"></i> Proyectos
+                    </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ session.get('nombre_completo', 'Usuario') }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text small text-muted">@{{ session.get('username') }}</span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('cambiar_password') }}">
+                            <i class="bi bi-key"></i> Cambiar Contraseña
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                        </a></li>
+                    </ul>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <div class="detalle-modern">
-        <h1>
-            <i class="bi bi-eye me-2"></i>Detalle del producto
-        </h1>
-
-        <div class="row g-4">
-            <div class="col-md-4 text-center">
-                {% if item['IMAGEN'] %}
-                    <img src="{{ url_for('static', filename='uploads/' ~ item['IMAGEN']) }}" 
-                         alt="{{ item['DESCRIPCION'] }}" 
-                         class="img-preview img-fluid">
-                {% else %}
-                    <div class="border rounded p-5 text-muted bg-light">
-                        <i class="bi bi-image display-1"></i>
-                        <p class="mt-2">Sin imagen</p>
+<div class="container">
+    <div class="detail-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-eye text-info"></i> Detalle del Producto
+            </h2>
+            {% if item['CANTIDAD'] <= item['MINIMO'] %}
+                <span class="badge bg-danger badge-custom">
+                    <i class="bi bi-exclamation-triangle"></i> Stock Bajo
+                </span>
+            {% else %}
+                <span class="badge bg-success badge-custom">
+                    <i class="bi bi-check-circle"></i> Stock OK
+                </span>
+            {% endif %}
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">ID:</div>
+                        <div class="col-8">{{ item['id'] }}</div>
                     </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Marca:</div>
+                        <div class="col-8">{{ item['MARCA'] }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Código:</div>
+                        <div class="col-8">{{ item['CODIGO'] }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Descripción:</div>
+                        <div class="col-8">{{ item['DESCRIPCION'] }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Cantidad:</div>
+                        <div class="col-8">
+                            <strong class="fs-5">{{ item['CANTIDAD'] }}</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Stock Mínimo:</div>
+                        <div class="col-8">{{ item['MINIMO'] }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Ubicación:</div>
+                        <div class="col-8">
+                            <span class="badge bg-secondary">{{ item['UBICACION'] }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if item['SERIAL'] %}
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Serial:</div>
+                        <div class="col-8">{{ item['SERIAL'] }}</div>
+                    </div>
+                </div>
                 {% endif %}
                 
-                <div class="mt-3">
-                    {% if item['CANTIDAD'] <= item['MINIMO'] %}
-                        <span class="badge bg-danger p-2">
-                            <i class="bi bi-exclamation-triangle me-1"></i> Stock bajo
-                        </span>
-                    {% else %}
-                        <span class="badge bg-success p-2">
-                            <i class="bi bi-check-circle me-1"></i> Stock OK
-                        </span>
-                    {% endif %}
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Precio Costo:</div>
+                        <div class="col-8">${{ "%.2f"|format(item['PRECIO_COSTO'] or 0) }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Precio Distribuidor:</div>
+                        <div class="col-8">${{ "%.2f"|format(item['PRECIO_DIST'] or 0) }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Precio Integrador:</div>
+                        <div class="col-8">${{ "%.2f"|format(item['PRECIO_INT'] or 0) }}</div>
+                    </div>
+                </div>
+                
+                <div class="info-row">
+                    <div class="row">
+                        <div class="col-4 info-label">Precio General:</div>
+                        <div class="col-8">${{ "%.2f"|format(item['PRECIO_GENERAL'] or 0) }}</div>
+                    </div>
                 </div>
             </div>
-
-            <div class="col-md-8">
-                <dl class="row table-detail">
-                    <dt class="col-sm-4">Marca</dt>
-                    <dd class="col-sm-8">{{ item['MARCA'] }}</dd>
-
-                    <dt class="col-sm-4">Código</dt>
-                    <dd class="col-sm-8"><span class="badge bg-secondary fs-6">{{ item['CODIGO'] }}</span></dd>
-
-                    <dt class="col-sm-4">Descripción</dt>
-                    <dd class="col-sm-8">{{ item['DESCRIPCION'] }}</dd>
-
-                    <dt class="col-sm-4">Cantidad actual</dt>
-                    <dd class="col-sm-8">
-                        <span class="badge bg-primary fs-5">{{ item['CANTIDAD'] }}</span>
-                    </dd>
-
-                    <dt class="col-sm-4">Stock mínimo</dt>
-                    <dd class="col-sm-8">{{ item['MINIMO'] }}</dd>
-
-                    <dt class="col-sm-4">Ubicación</dt>
-                    <dd class="col-sm-8">
-                        <span class="badge bg-info">{{ item['UBICACION'] }}</span>
-                    </dd>
-
-                    <dt class="col-sm-4">Serial</dt>
-                    <dd class="col-sm-8">{{ item['SERIAL'] or '-' }}</dd>
-
-                    <hr class="my-3">
-
-                    <dt class="col-sm-4">Precio costo</dt>
-                    <dd class="col-sm-8">${{ "%.2f"|format(item['PRECIO_COSTO'] or 0) }}</dd>
-
-                    <dt class="col-sm-4">Precio distribuidor</dt>
-                    <dd class="col-sm-8">${{ "%.2f"|format(item['PRECIO_DIST'] or 0) }}</dd>
-
-                    <dt class="col-sm-4">Precio integrador</dt>
-                    <dd class="col-sm-8">${{ "%.2f"|format(item['PRECIO_INT'] or 0) }}</dd>
-
-                    <dt class="col-sm-4">Precio general</dt>
-                    <dd class="col-sm-8">${{ "%.2f"|format(item['PRECIO_GENERAL'] or 0) }}</dd>
-                </dl>
-
-                <div class="d-flex flex-wrap gap-2 mt-4">
-                    <a href="{{ url_for('editar', id=item['id']) }}" class="btn btn-primary">
-                        <i class="bi bi-pencil me-1"></i>Editar
-                    </a>
-                    <a href="{{ url_for('entrada', id=item['id']) }}" class="btn btn-success">
-                        <i class="bi bi-box-arrow-in-down me-1"></i>Entrada
-                    </a>
-                    <a href="{{ url_for('salida', id=item['id']) }}" class="btn btn-outline-danger">
-                        <i class="bi bi-box-arrow-up me-1"></i>Salida
-                    </a>
-                    <a href="{{ url_for('movimientos', id=item['id']) }}" class="btn btn-info">
-                        <i class="bi bi-clock-history me-1"></i>Historial
-                    </a>
-                    <a href="{{ url_for('eliminar', id=item['id']) }}" 
-                       class="btn btn-danger btn-delete">
-                        <i class="bi bi-trash me-1"></i>Eliminar
-                    </a>
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left me-1"></i>Volver
-                    </a>
-                </div>
+            
+            <div class="col-md-4">
+                {% if item['IMAGEN'] %}
+                    <img src="{{ url_for('static', filename='uploads/' + item['IMAGEN']) }}" 
+                         class="product-img" 
+                         alt="Imagen del producto">
+                {% else %}
+                    <div class="text-center p-5 bg-light rounded">
+                        <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                        <p class="text-muted mt-2">Sin imagen</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
-    </div>
-
-    <!-- Modal de Confirmación -->
-    <div class="modal fade" id="deleteModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">
-                        <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>¿Estás seguro de que deseas eliminar este producto?</p>
-                    <p class="text-danger"><strong>Esta acción no se puede deshacer.</strong></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <a href="#" id="confirmDelete" class="btn btn-danger">Eliminar producto</a>
-                </div>
-            </div>
+        
+        <hr class="my-4">
+        
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('editar', id=item['id']) }}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Editar
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Inventario
+            </a>
         </div>
     </div>
+</div>
 
-    <!-- Toast Container -->
-    <div class="toast-container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
-                  <div class="d-flex">
-                      <div class="toast-body">
-                          {{ message }}
-                      </div>
-                      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                  </div>
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-    </div>
-
-    <script>
-        // Modal de eliminación
-        document.querySelectorAll('.btn-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const deleteUrl = btn.getAttribute('href');
-                document.getElementById('confirmDelete').setAttribute('href', deleteUrl);
-                new bootstrap.Modal(document.getElementById('deleteModal')).show();
-            });
-        });
-
-        // Auto-hide toasts
-        setTimeout(() => {
-            document.querySelectorAll('.toast').forEach(toast => {
-                toast.classList.remove('show');
-            });
-        }, 5000);
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

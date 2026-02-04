@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Login - Inventario LSI</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #003d82 0%, #0056b3 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            max-width: 450px;
+            width: 100%;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        .login-header {
+            background: #003d82;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .login-body {
+            padding: 40px;
+        }
+        .logo-container {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        .form-control:focus {
+            border-color: #003d82;
+            box-shadow: 0 0 0 0.2rem rgba(0, 61, 130, 0.25);
+        }
+        .btn-login {
+            background: #003d82;
+            border: none;
+            padding: 12px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-login:hover {
+            background: #002855;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 61, 130, 0.3);
+        }
+        .input-group-text {
+            background: #f8f9fa;
+            border-right: none;
+        }
+        .form-control {
+            border-left: none;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='logo.png') }}" 
+                     alt="LSI Group" 
+                     style="height: 60px;"
+                     onerror="this.style.display='none'">
+            </div>
+            <h3 class="mb-0">Sistema de Inventario</h3>
+            <p class="mb-0 small">LSI Group</p>
+        </div>
+        
+        <div class="login-body">
+            <form method="post" action="{{ url_for('login') }}">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Usuario</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+                        <input type="text" 
+                               name="username" 
+                               class="form-control" 
+                               placeholder="Ingresa tu usuario"
+                               autocomplete="username"
+                               required 
+                               autofocus>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                        <input type="password" 
+                               name="password" 
+                               class="form-control" 
+                               placeholder="Ingresa tu contraseña"
+                               autocomplete="current-password"
+                               required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-login w-100">
+                    <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
+                </button>
+            </form>
+
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="bi bi-shield-lock"></i> Acceso autorizado solamente
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-3">
+        <small class="text-white">
+            © 2025 LSI Group - Sistema de Inventario v1.0
+        </small>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
+              <div class="d-flex">
+                  <div class="toast-body">
+                      {{ message }}
+                  </div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+              </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+</div>
+
+<script>
+// Auto-hide toasts
+setTimeout(() => {
+    document.querySelectorAll('.toast').forEach(toast => {
+        toast.classList.remove('show');
+    });
+}, 5000);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

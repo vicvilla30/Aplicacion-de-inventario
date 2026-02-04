@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Detalle del Proyecto</title>
+    <title>Detalle del Proyecto - Inventario LSI</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background: #f8f9fa; }
+        /* Estilos del navbar */
         .navbar-nav .nav-link {
             font-weight: bold;
             color: white !important;
@@ -20,12 +20,15 @@
             background-color: rgba(255, 255, 255, 0.15);
             border-radius: 0.5rem;
         }
+        
+        body { background: #f8f9fa; }
         .project-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            margin-bottom: 2rem;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-top: 30px;
+            margin-bottom: 30px;
         }
         .toast-container {
             position: fixed;
@@ -64,7 +67,7 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('importar') }}">
-                        <i class="bi bi-cloud-upload"></i> Importar / Exportar
+                        <i class="bi bi-cloud-upload"></i> Importar Excel
                     </a>
                 </li>
                 <li class="nav-item">
@@ -72,117 +75,146 @@
                         <i class="bi bi-folder-plus"></i> Proyectos
                     </a>
                 </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ session.get('nombre_completo', 'Usuario') }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text small text-muted">@{{ session.get('username') }}</span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('cambiar_password') }}">
+                            <i class="bi bi-key"></i> Cambiar Contraseña
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                        </a></li>
+                    </ul>
+                </li>
             </ul>
         </div>
     </div>
 </nav>
 
-<div class="container-fluid px-4 py-4">
-    <!-- Header del Proyecto -->
-    <div class="project-header shadow">
-    <h3 class="text-center mb-3">SALIDA DE INVENTARIO</h3>
-    <div class="row">
-        <div class="col-md-4">
-            <strong>Fecha:</strong> {{ proyecto['fecha_inicio'] or 'N/A' }}
-        </div>
-        <div class="col-md-8">
-            <strong>Solicitado por:</strong> {{ proyecto['descripcion'] or 'N/A' }}
-        </div>
-        <div class="col-12 mt-2">
-            <strong>Proyecto:</strong> {{ proyecto['nombre'] }}
+<div class="container">
+    <div class="project-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2>
+                    <i class="bi bi-folder-open text-warning"></i> {{ proyecto['nombre'] }}
+                </h2>
+                {% if proyecto['descripcion'] %}
+                    <p class="text-muted mb-1">
+                        <i class="bi bi-person"></i> Solicitado por: {{ proyecto['descripcion'] }}
+                    </p>
+                {% endif %}
+                {% if proyecto['fecha_inicio'] %}
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-calendar"></i> Fecha de inicio: {{ proyecto['fecha_inicio'] }}
+                    </p>
+                {% endif %}
+            </div>
+            <span class="badge bg-{{ 'success' if proyecto['estado'] == 'ACTIVO' else 'secondary' }} fs-5">
+                {{ proyecto['estado'] or 'ACTIVO' }}
+            </span>
         </div>
     </div>
-</div>
-
-    <!-- Acciones -->
-    <div class="mb-4">
-        <a href="{{ url_for('asignar_items', proyecto_id=proyecto['id']) }}" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> Asignar Productos
-        </a>
-        <a href="{{ url_for('crear_proyecto') }}" class="btn btn-outline-secondary">
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>
+            <i class="bi bi-box-seam"></i> Productos Asignados ({{ items|length }})
+        </h3>
+        <div class="btn-group">
+            <a href="{{ url_for('asignar_items', proyecto_id=proyecto['id']) }}" class="btn btn-primary">
+                <i class="bi bi-plus-square"></i> Asignar Productos
+            </a>
+            {% if items %}
+            <a href="{{ url_for('exportar_proyecto', id=proyecto['id']) }}" class="btn btn-success">
+                <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if items %}
+        <div class="table-responsive shadow-sm bg-white rounded">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Marca</th>
+                        <th>Cantidad Asignada</th>
+                        <th>Stock Actual</th>
+                        <th>Fecha Asignación</th>
+                        <th>Observación</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item['CODIGO'] }}</td>
+                        <td>{{ item['DESCRIPCION'] }}</td>
+                        <td>{{ item['MARCA'] }}</td>
+                        <td><strong class="text-primary">{{ item['cantidad_asignada'] }}</strong></td>
+                        <td>{{ item['stock_actual'] }}</td>
+                        <td class="small text-muted">{{ item['fecha_asignacion'][:10] }}</td>
+                        <td class="small">{{ item['observacion'] or '-' }}</td>
+                        <td class="text-end">
+                            <button type="button" 
+                                    class="btn btn-sm btn-warning btn-return" 
+                                    data-id="{{ item['asignacion_id'] }}"
+                                    data-codigo="{{ item['CODIGO'] }}"
+                                    data-cantidad="{{ item['cantidad_asignada'] }}">
+                                <i class="bi bi-arrow-return-left"></i> Devolver
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No hay productos asignados a este proyecto. 
+            <a href="{{ url_for('asignar_items', proyecto_id=proyecto['id']) }}">Asignar productos ahora</a>
+        </div>
+    {% endif %}
+    
+    <div class="mt-4">
+        <a href="{{ url_for('crear_proyecto') }}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Volver a Proyectos
         </a>
     </div>
+</div>
 
-    <!-- Tabla de Items Asignados -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-white">
-            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Productos Asignados</h5>
-        </div>
-        <div class="card-body p-0">
-            {% if items|length == 0 %}
-                <div class="p-4 text-center text-muted">
-                    <i class="bi bi-inbox display-4"></i>
-                    <p class="mt-2">No hay productos asignados a este proyecto aún.</p>
+<!-- Modal de Devolución -->
+<div class="modal fade" id="returnModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-arrow-return-left"></i> Devolver Producto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="returnForm">
+                <div class="modal-body">
+                    <p>Producto: <strong id="returnCodigo"></strong></p>
+                    <p>Cantidad asignada: <strong id="returnCantidadMax"></strong></p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cantidad a devolver</label>
+                        <input type="number" name="cantidad" id="returnCantidad" class="form-control" min="1" required>
+                    </div>
                 </div>
-            {% else %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Código</th>
-                                <th>Descripción</th>
-                                <th>Marca</th>
-                                <th class="text-center">Cant. Asignada</th>
-                                <th class="text-center">Stock Actual</th>
-                                <th>Fecha Asignación</th>
-                                <th>Observación</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in items %}
-                                <tr>
-                                    <td><strong>{{ item['CODIGO'] }}</strong></td>
-                                    <td>{{ item['DESCRIPCION'] }}</td>
-                                    <td>{{ item['MARCA'] }}</td>
-                                    <td class="text-center"><span class="badge bg-primary">{{ item['cantidad_asignada'] }}</span></td>
-                                    <td class="text-center">{{ item['stock_actual'] }}</td>
-                                    <td><small class="text-muted">{{ item['fecha_asignacion'][:10] }}</small></td>
-                                    <td><small>{{ item['observacion'] or '-' }}</small></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-warning" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#devolverModal{{ item['asignacion_id'] }}">
-                                            <i class="bi bi-arrow-return-left"></i> Devolver
-                                        </button>
-                                    </td>
-                                </tr>
-
-                                <!-- Modal Devolver -->
-                                <div class="modal fade" id="devolverModal{{ item['asignacion_id'] }}" tabindex="-1">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Devolver Producto al Stock</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <form method="post" action="{{ url_for('devolver_item', asignacion_id=item['asignacion_id']) }}">
-                                                <div class="modal-body">
-                                                    <p><strong>{{ item['DESCRIPCION'] }}</strong></p>
-                                                    <p class="text-muted">Cantidad asignada: {{ item['cantidad_asignada'] }}</p>
-                                                    <div class="mb-3">
-                                                        <label class="form-label fw-bold">Cantidad a devolver:</label>
-                                                        <input type="number" name="cantidad" class="form-control" 
-                                                               min="1" max="{{ item['cantidad_asignada'] }}" 
-                                                               value="{{ item['cantidad_asignada'] }}" required>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                    <button type="submit" class="btn btn-warning">
-                                                        <i class="bi bi-arrow-return-left"></i> Devolver
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-return-left"></i> Devolver
+                    </button>
                 </div>
-            {% endif %}
+            </form>
         </div>
     </div>
 </div>
@@ -194,9 +226,7 @@
         {% for category, message in messages %}
           <div class="toast align-items-center text-bg-{{ category }} border-0 show" role="alert">
               <div class="d-flex">
-                  <div class="toast-body">
-                      {{ message }}
-                  </div>
+                  <div class="toast-body">{{ message }}</div>
                   <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
               </div>
           </div>
@@ -206,6 +236,24 @@
 </div>
 
 <script>
+// Modal de devolución
+document.querySelectorAll('.btn-return').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const asignacionId = this.getAttribute('data-id');
+        const codigo = this.getAttribute('data-codigo');
+        const cantidadMax = this.getAttribute('data-cantidad');
+        
+        document.getElementById('returnCodigo').textContent = codigo;
+        document.getElementById('returnCantidadMax').textContent = cantidadMax;
+        document.getElementById('returnCantidad').max = cantidadMax;
+        document.getElementById('returnCantidad').value = cantidadMax;
+        document.getElementById('returnForm').action = `/devolver_item/${asignacionId}`;
+        
+        new bootstrap.Modal(document.getElementById('returnModal')).show();
+    });
+});
+
+// Auto-hide toasts
 setTimeout(() => {
     document.querySelectorAll('.toast').forEach(toast => {
         toast.classList.remove('show');

@@ -1,16 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
 import sqlite3
 import os
 import uuid
 import pandas as pd
 import smtplib
 import unicodedata
+import io
 from email.message import EmailMessage
 from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = os.path.join(app.root_path, "static", "uploads")
-app.secret_key = "supersecretkey"
+app.secret_key = "LSI-Inventario-SecretKey-2025-VerySecure"
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 def quitar_acentos(txt):
     if txt is None:
@@ -105,6 +109,20 @@ def init_db():
     )
     """)
     
+    # Tabla de usuarios
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        nombre_completo TEXT,
+        rol TEXT DEFAULT 'admin',
+        activo INTEGER DEFAULT 1,
+        fecha_creacion TEXT,
+        debe_cambiar_password INTEGER DEFAULT 1
+    )
+    """)
+    
     # Insertar ubicaciones fijas por defecto
     ubicaciones_default = ['BODEGA', 'OFICINA', 'ALMACEN', 'TALLER']
     for ub in ubicaciones_default:
@@ -113,6 +131,24 @@ def init_db():
                 "INSERT OR IGNORE INTO ubicaciones (nombre, tipo) VALUES (?, 'FIJA')",
                 (ub,)
             )
+        except:
+            pass
+    
+    # Insertar usuarios por defecto
+    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    usuarios_default = [
+        ('vvillavicencio', 'LSI2025!', 'Victor Villavicencio', 'admin'),
+        ('edasilva', 'LSI2025!', 'Edith Da Silva', 'admin'),
+        ('mrodriguez', 'LSI2025!', 'Mayeli Rodriguez', 'admin')
+    ]
+    
+    for username, password, nombre, rol in usuarios_default:
+        try:
+            conn.execute("""
+                INSERT OR IGNORE INTO usuarios (username, password, nombre_completo, rol, fecha_creacion, debe_cambiar_password)
+                VALUES (?, ?, ?, ?, ?, 1)
+            """, (username, password, nombre, rol, fecha_actual))
         except:
             pass
     
@@ -157,7 +193,202 @@ def enviar_alerta_stock(producto):
     except Exception as e:
         print("❌ Error enviando correo:", e)
 
+
+# ============================================
+# 🔧 FUNCIONES HELPER (OPTIMIZACIÓN)
+# ============================================
+
+def render_with_ubicaciones(template, **kwargs):
+    """Helper para renderizar templates con ubicaciones automáticamente"""
+    ubicaciones_fijas, proyectos = obtener_ubicaciones()
+    return render_template(
+        template,
+        ubicaciones_fijas=ubicaciones_fijas,
+        proyectos=proyectos,
+        **kwargs
+    )
+
+def registrar_movimiento(conn, inventario_id, tipo, cantidad, observacion="", proyecto=""):
+    """Helper para registrar movimientos de inventario"""
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("""
+        INSERT INTO movimientos (inventario_id, tipo, cantidad, fecha, observacion, proyecto)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (inventario_id, tipo, cantidad, fecha, observacion, proyecto))
+
+def actualizar_stock_y_verificar(conn, inventario_id, nueva_cantidad):
+    """Helper para actualizar stock y enviar alerta si es necesario"""
+    conn.execute("UPDATE inventario SET CANTIDAD = ? WHERE id = ?", (nueva_cantidad, inventario_id))
+    producto = conn.execute("SELECT * FROM inventario WHERE id = ?", (inventario_id,)).fetchone()
+    
+    if producto and producto['CANTIDAD'] <= producto['MINIMO']:
+        enviar_alerta_stock(producto)
+        return True  # Retorna True si está en stock bajo
+    return False
+
+def get_item_or_404(conn, item_id, redirect_to='index'):
+    """Helper para obtener un item o redirigir si no existe"""
+    item = conn.execute("SELECT * FROM inventario WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        conn.close()
+        flash("Producto no encontrado.", "warning")
+        return None, redirect(url_for(redirect_to))
+    return item, None
+
+def get_proyecto_or_404(conn, proyecto_id):
+    """Helper para obtener un proyecto o redirigir si no existe"""
+    proyecto = conn.execute("SELECT * FROM ubicaciones WHERE id = ?", (proyecto_id,)).fetchone()
+    if not proyecto:
+        conn.close()
+        flash("Proyecto no encontrado", "danger")
+        return None, redirect(url_for("crear_proyecto"))
+    return proyecto, None
+
+
+# ============================================
+# 🔐 FUNCIONES DE AUTENTICACIÓN
+# ============================================
+
+def login_required(f):
+    """Decorador para proteger rutas que requieren login"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Por favor inicia sesión para acceder.', 'warning')
+            return redirect(url_for('login'))
+        
+        # Verificar si debe cambiar contraseña
+        if session.get('debe_cambiar_password') == 1 and request.endpoint != 'cambiar_password':
+            flash('Debes cambiar tu contraseña antes de continuar.', 'warning')
+            return redirect(url_for('cambiar_password'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def verificar_credenciales(username, password):
+    """Verifica si las credenciales son válidas"""
+    conn = get_db_connection()
+    usuario = conn.execute("""
+        SELECT * FROM usuarios 
+        WHERE username = ? AND password = ? AND activo = 1
+    """, (username, password)).fetchone()
+    conn.close()
+    return usuario
+
+
+# ============================================
+# 🔐 RUTAS DE AUTENTICACIÓN
+# ============================================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    # Si ya está logueado, redirigir al index
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+    
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "").strip()
+        
+        if not username or not password:
+            flash("Usuario y contraseña son obligatorios", "warning")
+            return redirect(url_for("login"))
+        
+        usuario = verificar_credenciales(username, password)
+        
+        if usuario:
+            # Guardar sesión
+            session['user_id'] = usuario['id']
+            session['username'] = usuario['username']
+            session['nombre_completo'] = usuario['nombre_completo']
+            session['rol'] = usuario['rol']
+            session['debe_cambiar_password'] = usuario['debe_cambiar_password']
+            
+            # Si debe cambiar contraseña, redirigir
+            if usuario['debe_cambiar_password'] == 1:
+                flash(f"Bienvenido/a {usuario['nombre_completo']}. Por favor cambia tu contraseña.", "warning")
+                return redirect(url_for('cambiar_password'))
+            
+            flash(f"Bienvenido/a {usuario['nombre_completo']}", "success")
+            return redirect(url_for('index'))
+        else:
+            flash("Usuario o contraseña incorrectos", "danger")
+            return redirect(url_for("login"))
+    
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    nombre = session.get('nombre_completo', 'Usuario')
+    session.clear()
+    flash(f"Hasta luego {nombre}, sesión cerrada correctamente", "info")
+    return redirect(url_for("login"))
+
+@app.route("/cambiar_password", methods=["GET", "POST"])
+@login_required
+def cambiar_password():
+    if request.method == "POST":
+        password_actual = request.form.get("password_actual", "").strip()
+        password_nueva = request.form.get("password_nueva", "").strip()
+        password_confirmar = request.form.get("password_confirmar", "").strip()
+        
+        if not password_actual or not password_nueva or not password_confirmar:
+            flash("Todos los campos son obligatorios", "warning")
+            return redirect(url_for("cambiar_password"))
+        
+        # Verificar que la contraseña actual sea correcta
+        conn = get_db_connection()
+        usuario = conn.execute("""
+            SELECT * FROM usuarios WHERE id = ? AND password = ?
+        """, (session['user_id'], password_actual)).fetchone()
+        
+        if not usuario:
+            conn.close()
+            flash("La contraseña actual es incorrecta", "danger")
+            return redirect(url_for("cambiar_password"))
+        
+        # Verificar que las contraseñas nuevas coincidan
+        if password_nueva != password_confirmar:
+            conn.close()
+            flash("Las contraseñas nuevas no coinciden", "danger")
+            return redirect(url_for("cambiar_password"))
+        
+        # Verificar longitud mínima
+        if len(password_nueva) < 6:
+            conn.close()
+            flash("La contraseña debe tener al menos 6 caracteres", "warning")
+            return redirect(url_for("cambiar_password"))
+        
+        # Verificar que no sea igual a la actual
+        if password_nueva == password_actual:
+            conn.close()
+            flash("La contraseña nueva debe ser diferente a la actual", "warning")
+            return redirect(url_for("cambiar_password"))
+        
+        # Actualizar contraseña
+        conn.execute("""
+            UPDATE usuarios 
+            SET password = ?, debe_cambiar_password = 0 
+            WHERE id = ?
+        """, (password_nueva, session['user_id']))
+        conn.commit()
+        conn.close()
+        
+        # Actualizar sesión
+        session['debe_cambiar_password'] = 0
+        
+        flash("Contraseña cambiada correctamente", "success")
+        return redirect(url_for('index'))
+    
+    return render_template("cambiar_password.html")
+
+
+# ============================================
+# 📍 RUTAS DE LA APLICACIÓN
+# ============================================
+
 @app.route("/", methods=["GET"])
+@login_required
 def index():
     busqueda = request.args.get("busqueda", "").strip()
     solo_bajo_stock = request.args.get("solo_bajo_stock", "")
@@ -201,6 +432,7 @@ def index():
     )
 
 @app.route("/exportar_seleccionados", methods=["POST"])
+@login_required
 def exportar_seleccionados():
     seleccionados = request.form.getlist('seleccionados')
     if not seleccionados:
@@ -212,11 +444,21 @@ def exportar_seleccionados():
     items = conn.execute(query, seleccionados).fetchall()
     conn.close()
     df = pd.DataFrame([dict(item) for item in items])
-    export_path = os.path.join("static", "export_seleccionados.xlsx")
-    df.to_excel(export_path, index=False)
-    return send_file(export_path, as_attachment=True)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Seleccionados')
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='export_seleccionados.xlsx'
+    )
 
 @app.route("/agregar", methods=["GET", "POST"])
+@login_required
 def agregar():
     if request.method == "POST":
         marca = request.form.get("marca", "").strip()
@@ -258,21 +500,19 @@ def agregar():
              precio_costo, precio_dist, precio_int, precio_general, imagen)
         )
         conn.commit()
+        
         nuevo = conn.execute("SELECT * FROM inventario WHERE id = last_insert_rowid()").fetchone()
         if nuevo and nuevo["CANTIDAD"] <= nuevo["MINIMO"]:
             enviar_alerta_stock(nuevo)
+        
         conn.close()
         flash("Producto agregado correctamente.", "success")
         return redirect(url_for("index"))
     
-    ubicaciones_fijas, proyectos = obtener_ubicaciones()
-    return render_template(
-        "agregar.html",
-        ubicaciones_fijas=ubicaciones_fijas,
-        proyectos=proyectos
-    )
+    return render_with_ubicaciones("agregar.html")
 
 @app.route("/crear_proyecto", methods=["GET", "POST"])
+@login_required
 def crear_proyecto():
     if request.method == "POST":
         nombre = request.form.get("nombre", "").strip().upper()
@@ -310,49 +550,15 @@ def crear_proyecto():
     
     return render_template("crear_proyecto.html", proyectos=proyectos, today=today)
 
-@app.route("/entrada/<int:id>", methods=["GET", "POST"])
-def entrada(id):
-    conn = get_db_connection()
-    item = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
-    if not item:
-        conn.close()
-        flash("Producto no encontrado.", "warning")
-        return redirect(url_for("index"))
-    if request.method == "POST":
-        cantidad = int(request.form.get("cantidad", 0))
-        observacion = request.form.get("observacion", "")
-        proyecto = request.form.get("proyecto", "").strip()
-        if cantidad <= 0:
-            flash("Cantidad inválida.", "danger")
-            return redirect(url_for("entrada", id=id))
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        conn.execute("""
-            INSERT INTO movimientos (inventario_id, tipo, cantidad, fecha, observacion, proyecto)
-            VALUES (?, 'entrada', ?, ?, ?, ?)
-        """, (id, cantidad, fecha, observacion, proyecto))
-        nueva_cantidad = item["CANTIDAD"] + cantidad
-        conn.execute("UPDATE inventario SET CANTIDAD = ? WHERE id = ?", (nueva_cantidad, id))
-        conn.commit()
-        conn.close()
-        flash("Entrada registrada correctamente.", "success")
-        return redirect(url_for("index"))
-    
-    ubicaciones_fijas, proyectos = obtener_ubicaciones()
-    conn.close()
-    return render_template("entrada.html", item=item, proyectos=proyectos)
-
 @app.route("/editar/<int:id>", methods=["GET", "POST"])
+@login_required
 def editar(id):
     conn = get_db_connection()
-    item = conn.execute(
-        "SELECT * FROM inventario WHERE id = ?",
-        (id,)
-    ).fetchone()
+    item, error = get_item_or_404(conn, id)
     conn.close()
-
-    if not item:
-        flash("Producto no encontrado", "danger")
-        return redirect(url_for("index"))
+    
+    if error:
+        return error
 
     if request.method == "POST":
         marca = request.form.get("marca", "").strip()
@@ -403,16 +609,10 @@ def editar(id):
         flash("Producto actualizado correctamente.", "success")
         return redirect(url_for("index"))
 
-    ubicaciones_fijas, proyectos = obtener_ubicaciones()
-
-    return render_template(
-        "editar.html",
-        item=item,
-        ubicaciones_fijas=ubicaciones_fijas,
-        proyectos=proyectos
-    )
+    return render_with_ubicaciones("editar.html", item=item)
 
 @app.route("/eliminar/<int:id>")
+@login_required
 def eliminar(id):
     conn = get_db_connection()
     conn.execute("DELETE FROM inventario WHERE id = ?", (id,))
@@ -422,47 +622,15 @@ def eliminar(id):
     return redirect(url_for("index"))
 
 @app.route("/detalle/<int:id>")
+@login_required
 def detalle(id):
     conn = get_db_connection()
     item = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
     conn.close()
     return render_template("detalle.html", item=item)
 
-@app.route("/salida/<int:id>", methods=["GET", "POST"])
-def salida(id):
-    conn = get_db_connection()
-    item = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
-    if not item:
-        conn.close()
-        flash("Producto no encontrado.", "warning")
-        return redirect(url_for("index"))
-    if request.method == "POST":
-        cantidad = int(request.form.get("cantidad", 0))
-        observacion = request.form.get("observacion", "")
-        proyecto = request.form.get("proyecto", "").strip()
-        if cantidad <= 0 or cantidad > item["CANTIDAD"]:
-            flash("Cantidad inválida.", "danger")
-            return redirect(url_for("salida", id=id))
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        conn.execute("""
-            INSERT INTO movimientos (inventario_id, tipo, cantidad, fecha, observacion, proyecto)
-            VALUES (?, 'salida', ?, ?, ?, ?)
-        """, (id, cantidad, fecha, observacion, proyecto))
-        nueva_cantidad = item["CANTIDAD"] - cantidad
-        conn.execute("UPDATE inventario SET CANTIDAD = ? WHERE id = ?", (nueva_cantidad, id))
-        producto_actualizado = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
-        if producto_actualizado and producto_actualizado["CANTIDAD"] <= producto_actualizado["MINIMO"]:
-            enviar_alerta_stock(producto_actualizado)
-        conn.commit()
-        conn.close()
-        flash("Salida registrada correctamente.", "success")
-        return redirect(url_for("index"))
-    
-    ubicaciones_fijas, proyectos = obtener_ubicaciones()
-    conn.close()
-    return render_template("salida.html", item=item, proyectos=proyectos)
-
 @app.route("/exportar")
+@login_required
 def exportar():
     busqueda = request.args.get("busqueda", "")
     conn = get_db_connection()
@@ -482,19 +650,21 @@ def exportar():
     items = conn.execute(query, params).fetchall()
     conn.close()
     df = pd.DataFrame([dict(item) for item in items])
-    export_path = os.path.join("static", "export_inventario.xlsx")
-    df.to_excel(export_path, index=False)
-    return send_file(export_path, as_attachment=True)
-
-@app.route("/movimientos/<int:id>")
-def movimientos(id):
-    conn = get_db_connection()
-    item = conn.execute("SELECT * FROM inventario WHERE id = ?", (id,)).fetchone()
-    movimientos = conn.execute("SELECT * FROM movimientos WHERE inventario_id = ? ORDER BY fecha DESC", (id,)).fetchall()
-    conn.close()
-    return render_template("movimientos.html", item=item, movimientos=movimientos)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Inventario')
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='export_inventario.xlsx'
+    )
 
 @app.route("/importar", methods=["GET", "POST"])
+@login_required
 def importar():
     if request.method == "POST":
         if "archivo" not in request.files:
@@ -605,6 +775,7 @@ def importar():
     return render_template("importar.html")
 
 @app.route("/descargar_plantilla")
+@login_required
 def descargar_plantilla():
     conn = get_db_connection()
     items = conn.execute("SELECT * FROM inventario ORDER BY id").fetchall()
@@ -623,24 +794,30 @@ def descargar_plantilla():
     ]
     df = df[columnas_exportar]
     
-    export_path = os.path.join("static", "inventario_LSI.xlsx")
-    df.to_excel(export_path, index=False)
-    return send_file(export_path, as_attachment=True)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Inventario')
+    output.seek(0)
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='inventario_LSI.xlsx'
+    )
 
 
 # ============================================
-# ⬇️ NUEVAS RUTAS PARA GESTIÓN DE PROYECTOS ⬇️
+# ⬇️ RUTAS DE GESTIÓN DE PROYECTOS ⬇️
 # ============================================
 
 @app.route("/detalle_proyecto/<int:id>")
+@login_required
 def detalle_proyecto(id):
     conn = get_db_connection()
-    proyecto = conn.execute("SELECT * FROM ubicaciones WHERE id = ?", (id,)).fetchone()
-    
-    if not proyecto:
-        conn.close()
-        flash("Proyecto no encontrado", "danger")
-        return redirect(url_for("crear_proyecto"))
+    proyecto, error = get_proyecto_or_404(conn, id)
+    if error:
+        return error
     
     # Obtener items asignados al proyecto
     items = conn.execute("""
@@ -664,16 +841,78 @@ def detalle_proyecto(id):
     
     return render_template("detalle_proyecto.html", proyecto=proyecto, items=items)
 
-
-@app.route("/asignar_items/<int:proyecto_id>", methods=["GET", "POST"])
-def asignar_items(proyecto_id):
+@app.route("/exportar_proyecto/<int:id>")
+@login_required
+def exportar_proyecto(id):
     conn = get_db_connection()
-    proyecto = conn.execute("SELECT * FROM ubicaciones WHERE id = ?", (proyecto_id,)).fetchone()
+    
+    # Obtener información del proyecto
+    proyecto = conn.execute("SELECT * FROM ubicaciones WHERE id = ? AND tipo = 'PROYECTO'", (id,)).fetchone()
     
     if not proyecto:
+        flash("Proyecto no encontrado.", "danger")
         conn.close()
-        flash("Proyecto no encontrado", "danger")
-        return redirect(url_for("crear_proyecto"))
+        return redirect(url_for('crear_proyecto'))
+    
+    # Obtener items asignados al proyecto
+    items = conn.execute("""
+        SELECT 
+            i.CODIGO,
+            i.MARCA,
+            i.DESCRIPCION,
+            pi.cantidad_asignada as CANTIDAD_ASIGNADA,
+            i.CANTIDAD as STOCK_ACTUAL,
+            i.UBICACION,
+            pi.fecha_asignacion as FECHA_ASIGNACION,
+            pi.observacion as OBSERVACION
+        FROM proyecto_items pi
+        JOIN inventario i ON pi.inventario_id = i.id
+        WHERE pi.proyecto_id = ?
+        ORDER BY i.CODIGO
+    """, (id,)).fetchall()
+    
+    conn.close()
+    
+    if not items:
+        flash("No hay productos asignados a este proyecto.", "warning")
+        return redirect(url_for('detalle_proyecto', id=id))
+    
+    # Convertir a DataFrame
+    df = pd.DataFrame([dict(item) for item in items])
+    
+    # Crear archivo Excel en memoria
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Productos Asignados')
+        
+        # Ajustar anchos de columna
+        worksheet = writer.sheets['Productos Asignados']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max(),
+                len(col)
+            ) + 2
+            worksheet.column_dimensions[chr(65 + idx)].width = max_length
+    
+    output.seek(0)
+    
+    # Nombre del archivo
+    nombre_archivo = f"Proyecto_{proyecto['nombre'].replace(' ', '_')}.xlsx"
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=nombre_archivo
+    )
+
+@app.route("/asignar_items/<int:proyecto_id>", methods=["GET", "POST"])
+@login_required
+def asignar_items(proyecto_id):
+    conn = get_db_connection()
+    proyecto, error = get_proyecto_or_404(conn, proyecto_id)
+    if error:
+        return error
     
     if request.method == "POST":
         inventario_id = request.form.get("inventario_id")
@@ -684,7 +923,6 @@ def asignar_items(proyecto_id):
             flash("Debe seleccionar un producto y cantidad válida", "warning")
             return redirect(url_for("asignar_items", proyecto_id=proyecto_id))
         
-        # Verificar stock disponible
         item = conn.execute("SELECT * FROM inventario WHERE id = ?", (inventario_id,)).fetchone()
         
         if not item:
@@ -702,37 +940,31 @@ def asignar_items(proyecto_id):
             VALUES (?, ?, ?, ?, ?)
         """, (proyecto_id, inventario_id, cantidad, fecha, observacion))
         
-        # Descontar del stock
+        # Descontar del stock y verificar
         nueva_cantidad = item['CANTIDAD'] - cantidad
-        conn.execute("UPDATE inventario SET CANTIDAD = ? WHERE id = ?", (nueva_cantidad, inventario_id))
+        stock_bajo = actualizar_stock_y_verificar(conn, inventario_id, nueva_cantidad)
         
         # Registrar movimiento
-        conn.execute("""
-            INSERT INTO movimientos (inventario_id, tipo, cantidad, fecha, observacion, proyecto)
-            VALUES (?, 'salida', ?, ?, ?, ?)
-        """, (inventario_id, cantidad, fecha, f"Asignado a proyecto: {observacion}", proyecto['nombre']))
+        registrar_movimiento(conn, inventario_id, 'salida', cantidad, 
+                           f"Asignado a proyecto: {observacion}", proyecto['nombre'])
         
         conn.commit()
         
-        # Verificar si el producto quedó con stock bajo
-        producto_actualizado = conn.execute("SELECT * FROM inventario WHERE id = ?", (inventario_id,)).fetchone()
-        if producto_actualizado and producto_actualizado['CANTIDAD'] <= producto_actualizado['MINIMO']:
-            enviar_alerta_stock(producto_actualizado)
-            flash(f"⚠️ {producto_actualizado['DESCRIPCION']} está en stock bajo", "warning")
+        if stock_bajo:
+            producto = conn.execute("SELECT * FROM inventario WHERE id = ?", (inventario_id,)).fetchone()
+            flash(f"⚠️ {producto['DESCRIPCION']} está en stock bajo", "warning")
         
         conn.close()
-        
         flash(f"✅ {cantidad} unidades asignadas al proyecto correctamente", "success")
         return redirect(url_for("detalle_proyecto", id=proyecto_id))
     
-    # Obtener productos disponibles
     productos = conn.execute("SELECT * FROM inventario WHERE CANTIDAD > 0 ORDER BY DESCRIPCION").fetchall()
     conn.close()
     
     return render_template("asignar_items.html", proyecto=proyecto, productos=productos)
 
-
 @app.route("/devolver_item/<int:asignacion_id>", methods=["POST"])
+@login_required
 def devolver_item(asignacion_id):
     cantidad_devolver = int(request.form.get("cantidad", 0))
     
@@ -741,8 +973,6 @@ def devolver_item(asignacion_id):
         return redirect(request.referrer)
     
     conn = get_db_connection()
-    
-    # Obtener información de la asignación
     asignacion = conn.execute("""
         SELECT pi.*, u.nombre as proyecto_nombre, i.CODIGO, i.DESCRIPCION
         FROM proyecto_items pi
@@ -765,27 +995,18 @@ def devolver_item(asignacion_id):
     nueva_cantidad_asignada = asignacion['cantidad_asignada'] - cantidad_devolver
     
     if nueva_cantidad_asignada == 0:
-        # Eliminar asignación si se devuelve todo
         conn.execute("DELETE FROM proyecto_items WHERE id = ?", (asignacion_id,))
     else:
-        # Actualizar cantidad
         conn.execute("UPDATE proyecto_items SET cantidad_asignada = ? WHERE id = ?", 
                     (nueva_cantidad_asignada, asignacion_id))
     
     # Devolver al stock
-    conn.execute("""
-        UPDATE inventario 
-        SET CANTIDAD = CANTIDAD + ? 
-        WHERE id = ?
-    """, (cantidad_devolver, asignacion['inventario_id']))
+    conn.execute("UPDATE inventario SET CANTIDAD = CANTIDAD + ? WHERE id = ?", 
+                (cantidad_devolver, asignacion['inventario_id']))
     
     # Registrar movimiento
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn.execute("""
-        INSERT INTO movimientos (inventario_id, tipo, cantidad, fecha, observacion, proyecto)
-        VALUES (?, 'entrada', ?, ?, ?, ?)
-    """, (asignacion['inventario_id'], cantidad_devolver, fecha, 
-          f"Devuelto desde proyecto", asignacion['proyecto_nombre']))
+    registrar_movimiento(conn, asignacion['inventario_id'], 'entrada', cantidad_devolver,
+                        "Devuelto desde proyecto", asignacion['proyecto_nombre'])
     
     conn.commit()
     conn.close()
@@ -793,16 +1014,13 @@ def devolver_item(asignacion_id):
     flash(f"✅ {cantidad_devolver} unidades devueltas al stock correctamente", "success")
     return redirect(request.referrer)
 
-
 @app.route("/eliminar_proyecto/<int:id>", methods=["POST"])
+@login_required
 def eliminar_proyecto(id):
     conn = get_db_connection()
-    proyecto = conn.execute("SELECT * FROM ubicaciones WHERE id = ?", (id,)).fetchone()
-    
-    if not proyecto:
-        conn.close()
-        flash("Proyecto no encontrado", "danger")
-        return redirect(url_for("crear_proyecto"))
+    proyecto, error = get_proyecto_or_404(conn, id)
+    if error:
+        return error
     
     # Obtener todos los items asignados al proyecto
     items_asignados = conn.execute("""
@@ -816,18 +1034,12 @@ def eliminar_proyecto(id):
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for item in items_asignados:
         # Devolver al stock
-        conn.execute("""
-            UPDATE inventario 
-            SET CANTIDAD = CANTIDAD + ? 
-            WHERE id = ?
-        """, (item['cantidad_asignada'], item['inventario_id']))
+        conn.execute("UPDATE inventario SET CANTIDAD = CANTIDAD + ? WHERE id = ?", 
+                    (item['cantidad_asignada'], item['inventario_id']))
         
         # Registrar movimiento
-        conn.execute("""
-            INSERT INTO movimientos (inventario_id, tipo, cantidad, fecha, observacion, proyecto)
-            VALUES (?, 'entrada', ?, ?, ?, ?)
-        """, (item['inventario_id'], item['cantidad_asignada'], fecha, 
-              f"Devuelto por eliminación de proyecto", proyecto['nombre']))
+        registrar_movimiento(conn, item['inventario_id'], 'entrada', item['cantidad_asignada'],
+                           "Devuelto por eliminación de proyecto", proyecto['nombre'])
     
     # Eliminar todas las asignaciones del proyecto
     conn.execute("DELETE FROM proyecto_items WHERE proyecto_id = ?", (id,))
@@ -843,10 +1055,10 @@ def eliminar_proyecto(id):
 
 
 # ============================================
-# ⬆️ FIN DE LAS NUEVAS RUTAS ⬆️
+# ⬆️ FIN DE RUTAS DE PROYECTOS ⬆️
 # ============================================
 
 if __name__ == "__main__":
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     init_db()
-    app.run(host="10.1.3.105", port=5000, debug=True)
+    app.run(host="10.1.3.105", port=5000, debug=True, threaded=True)
